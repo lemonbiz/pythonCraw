@@ -7,6 +7,11 @@ from datetime import datetime
 import time
 import robotparser
 import Queue
+import csv
+import lxml.html
+
+FIELDS = ('area', 'population', 'iso', 'country', 'capital', 'continent', 'tld', 'currency_code', 'currency_name', 'phone', 'postal_code_format', 'postal_code_regex', 'languages', 'neighbours')
+
 
 def printWebWhois(url):
 	return whois.whois(url)
@@ -15,7 +20,7 @@ def printWebTechnology(url):
 	return builtwith.parse(url)
 
 def download(url, user_agent='wswp',proxy=None, num_retries=2):
-	print 'Downloading:', url
+	#print 'Downloading:', url
 	#time.sleep(1)
 	headers = {'User-agent': user_agent}
 	request = urllib2.Request(url, headers = headers)
@@ -53,7 +58,7 @@ def crawl_sitemap(url):
 
 #crawl_sitemap('http://example.webscraping.com/sitemap.xml')
 
-def link_crawler(seed_url, link_regex, delay=2, max_depth=2):
+def link_crawler(seed_url, link_regex, delay=2, max_depth=2, scrape_callback=None):
 	max_depth = 2
 	crawl_queue = [seed_url]
 	seen = {seed_url: 0}
@@ -68,8 +73,16 @@ def link_crawler(seed_url, link_regex, delay=2, max_depth=2):
 		html = download(url)
 
 		depth = seen[url]
+		links = []
+		if scrape_callback:
+			links.extend(scrape_callback(url, html) or [])
+
+
 		if depth != max_depth:
-			for link in get_links(html):
+			if link_regex:
+				# filter for links matching our regular expression
+				links.extend(link for link in get_links(html) if re.match(link_regex, link))
+			for link in links:
 				if re.match(link_regex, link):
 					link = urlparse.urljoin(seed_url, link)
 					#print link
@@ -85,6 +98,24 @@ def get_links(html):
 	urls = webpage_regex.findall(html)
 	#print urls
 	return urls
+
+def scrape_callback(url, html):
+	if re.search('/places/default/view/', url):
+		tree = lxml.html.fromstring(html)
+		'''
+		for field in FIELDS:
+			print field
+			information = tree.cssselect('table > tr#places_%s__row > td.w2p_fw' % field)[0].text_content()
+			print information
+		'''
+
+		try:
+			row = [tree.cssselect('table > tr#places_%s__row > td.w2p_fw' % field)[0].text_content() for field in FIELDS]
+		except Exception as e:
+			raise
+		
+		print url
+		print row
 
 
 class Throttle:
@@ -103,8 +134,23 @@ class Throttle:
 				time.sleep(sleep_secs)
 		self.domains[domain] = datetime.now()
 
+class ScrapeCallback:
+    def __init__(self):
+        self.writer = csv.writer(open('countries.csv', 'w'))
+        self.fields = ('area', 'population', 'iso', 'country', 'capital', 'continent', 'tld', 'currency_code', 'currency_name', 'phone', 'postal_code_format', 'postal_code_regex', 'languages', 'neighbours')
+        self.writer.writerow(self.fields)
+
+    def __call__(self, url, html):
+        if re.search('/places/default/view/', url):
+            tree = lxml.html.fromstring(html)
+            row = []
+            for field in self.fields:
+                row.append(tree.cssselect('table > tr#places_{}__row > td.w2p_fw'.format(field))[0].text_content())
+            self.writer.writerow(row)
+
+
 #http://example.webscraping.com/places/default/index/25
 #http://example.webscraping.com/places/default/view/Aland-Islands-2
 
 
-link_crawler('http://example.webscraping.com', '/places/default/(index|view)')
+link_crawler('http://example.webscraping.com', '/places/default/(index|view)', scrape_callback=ScrapeCallback())
