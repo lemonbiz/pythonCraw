@@ -20,6 +20,7 @@ def main():
 
 a = 10
 lock = threading.Lock()
+#线程锁，实现对资源的互斥使用
 
 def operation_1():
 	lock.acquire()
@@ -46,6 +47,10 @@ for thread in [thread_1, thread_2]:
 
 print a
 '''
+#ThreadLocal 通过在线程中定义：
+#local_school = threading.local()
+#此时这个local_school就变成了一个全局变量，但这个全局变量只在该线程中为全局变量，
+#对于其他线程来说是局部变量，别的线程不可更改
 local = threading.local()
 def func(name):
     print 'current thread:%s' % threading.currentThread().name
