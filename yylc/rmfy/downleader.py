@@ -19,21 +19,81 @@ import pickle
 from pymongo import MongoClient
 import threading
 import sys
+from selenium import webdriver
+import json
+import calendar
+import traceback
 
 reload(sys)
 sys.setdefaultencoding( "utf-8" )
+
+old_time = '2018-01-01'
+now_time = time.strftime('%Y-%m-%d', time.localtime())
 
 DEFAULT_AGENT = 'wswp'
 DEFAULT_DELAY = 5
 DEFAULT_RETRIES = 1
 DEFAULT_TIMEOUT = 60
 SLEEP_TIME = 1
+'''
+全局变量字典类型result 用来保存各个省份的信息
+结构如下:
+
+'''
 
 results = {}
+driver = webdriver.Chrome()
+
+def getZCSSUrlDict(url, driver=driver, pages = 299):
+	driver.get(url)
+	oldTime = old_time
+	ZCSSUrlDict = {}
+	while True:
+		monthUrl = []
+		driver.find_element_by_id('time').clear()
+		driver.find_element_by_id('time1').clear()
+		oldTime = datetime.strptime(oldTime,'%Y-%m-%d')
+		driver.find_element_by_id('time').send_keys(str(oldTime).split(' ')[0])
+		_,all = calendar.monthrange(int(oldTime.year), int(oldTime.month))
+		newTime = oldTime + timedelta(days=all-1)
+		driver.find_element_by_id('time1').send_keys(str(newTime).split(' ')[0])
+		print 'download ' + str(oldTime)
+		for page in range(pages):
+			nextPages = None
+			hrefs = []
+			driver.implicitly_wait(30)
+			results = driver.find_elements_by_css_selector('tr.listtr > td > span > a')
+			hrefs = [result.get_attribute('href') for result in results]
+			for href in hrefs:
+				monthUrl.append(href)
+			
+			nextPages = driver.find_elements_by_css_selector('a.next')
+			print 'it is ' + str(page)
+			if nextPages == None:
+				break
+			if page == 0:
+				nextPage = nextPages[0]
+			else:
+				try:
+					nextPage = nextPages[2]
+				except:
+					traceback.print_exc()
+					break
+
+			time.sleep(1)
+			nextPage.click()
+		ZCSSUrlDict[str(oldTime).split(' ')[0]] = monthUrl
+		newTime = newTime + timedelta(days=1)
+		oldTime = str(newTime).split(' ')[0]
+		if oldTime > now_time:
+			break
+	return ZCSSUrlDict
+
+
 
 class DiskCache(object):
 	"""docstring for DiskCache"""
-	def __init__(self, cache_dir='cache',expires=timedelta(days=30)):
+	def __init__(self, cache_dir='cache',expires=timedelta(days=1)):
 		self.cache_dir = cache_dir
 		self.expires = expires
 
@@ -146,7 +206,7 @@ class Downloader:
 
 download = Downloader(cache=DiskCache())
 
-def get_links(html):
+def getProvinceNameUrl(html):
 	#<a href="/places/default/index/11">
 	webpage_regex = re.compile(r'<td( colspan="2")?><a( target="_blank")? href="(.*?)"', re.IGNORECASE)
 	urls = webpage_regex.findall(html)
@@ -170,7 +230,7 @@ def get_links(html):
 		for i in range(35):
 			if not re.match(hand ,urls[i]):
 				urls[i] = urlhand + urls[i]
-			results[i+1] = {'provinceName':pro[i], 'provinceUrl':urls[i], 'noticeUrl':None, 'urlList':{}}
+			results[i+1] = {'provinceName':pro[i], 'provinceUrl':urls[i], 'noticeUrl':None, 'urlList':None}
 			fp.write(pro[i]+':'+urls[i]+'\n')
 
 	return urls, pro, results
@@ -179,17 +239,20 @@ def getNoticeUrl(url=None):
 	html = download(url)
 	webpage_regex = re.compile(r'<area shape="rect" coords="184,5,311,29" href="(.*?)"', re.IGNORECASE)
 	r = webpage_regex.findall(html)[0]
-	print r
 	return r
 
 def main():
 	html = download('http://www.rmfysszc.gov.cn')
-	urls, provinces, _ = get_links(html)
+	urls, provinces, _ = getProvinceNameUrl(html)
 	print len(urls), len(provinces), len(results)
-	for i in range(32):
+	for i in range(2):
 		url = results[i+1]['provinceUrl']
 		results[i+1]['noticeUrl'] = getNoticeUrl(url)
-	print results
+		results[i+1]['urlList'] = getZCSSUrlDict(results[i+1]['noticeUrl'])
+	fileReslut = open('1.gson', 'w')
+	json.dump(results, fileReslut, ensure_ascii=False)
+	fileReslut.close()
+	print 'ok'
 
 
 if __name__ == "__main__":
