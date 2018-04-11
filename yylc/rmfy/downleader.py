@@ -61,7 +61,7 @@ def getZCSSUrlDict(url, driver=driver, pages = 299):
 		for page in range(pages):
 			nextPages = None
 			hrefs = []
-			driver.implicitly_wait(30)
+			driver.implicitly_wait(100)
 			results = driver.find_elements_by_css_selector('tr.listtr > td > span > a')
 			hrefs = [result.get_attribute('href') for result in results]
 			for href in hrefs:
@@ -80,7 +80,7 @@ def getZCSSUrlDict(url, driver=driver, pages = 299):
 					traceback.print_exc()
 					break
 
-			time.sleep(1)
+			time.sleep(random.randint(0,10))
 			nextPage.click()
 		ZCSSUrlDict[str(oldTime).split(' ')[0]] = monthUrl
 		newTime = newTime + timedelta(days=1)
@@ -249,10 +249,11 @@ def main():
 		url = results[i+1]['provinceUrl']
 		results[i+1]['noticeUrl'] = getNoticeUrl(url)
 		results[i+1]['urlList'] = getZCSSUrlDict(results[i+1]['noticeUrl'])
-	fileReslut = open('1.gson', 'w')
-	json.dump(results, fileReslut, ensure_ascii=False)
-	fileReslut.close()
-	print 'ok'
+		filename = 'provinceName/' + str(i) + '.json'
+		fileReslut = open(filename, 'w')
+		json.dump(results[i+1], fileReslut, ensure_ascii=False)
+		fileReslut.close()
+		print 'ok'
 
 
 if __name__ == "__main__":
