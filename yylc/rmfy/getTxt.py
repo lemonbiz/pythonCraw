@@ -23,6 +23,7 @@ from selenium import webdriver
 import json
 import calendar
 import traceback
+import codecs
 
 reload(sys)
 sys.setdefaultencoding( "utf-8" )
@@ -72,10 +73,10 @@ class DiskCache(object):
 		path = self.url_to_path(url)
 		folder = os.path.dirname(path)
 		timestamp = datetime.utcnow()
-		data = pickle.dumps((result, timestamp))
+		data = pickle.dumps((result, timestamp)).encode('utf8')  
 		if not os.path.exists(folder):
 			os.makedirs(folder)
-		with open(path, 'w') as fp:
+		with codecs.open(path, 'w', encoding='utf8') as fp:
 			fp.write(data)
 
 	def has_expired(self, timestamp):
@@ -125,6 +126,7 @@ class Downloader:
 			proxy = random.choice(self.proxies) if self.proxies else None
 			headers = {'User-agent': self.user_agent}
 			result = self.download(url, headers, proxy, self.num_retries)
+			print result
 			if self.cache:
 				self.cache[url] = result
 		return result['html']
@@ -137,8 +139,10 @@ class Downloader:
 			proxy_params = {urlparse.urlparse(url).scheme: proxy}
 			opener.add_handler(urllib2.ProxyHandler(proxy_params))
 		try:
+			type = sys.getfilesystemencoding() 
 			response = opener.open(request)
-			html = response.read()
+			html = response.read().decode('utf-8').encode(type)
+			
 			code = response.code
 		except Exception as e:
 			print 'Download error', str(e)
@@ -163,6 +167,7 @@ def threaded_crawler(urlList=None, delay=5, cache=None, scrape_callback=None, us
 				break
 			else:
 				html = D(url)
+				print html
 				'''
 				if scrape_callback:
 					try:
