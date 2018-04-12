@@ -44,19 +44,40 @@ SLEEP_TIME = 1
 results = {}
 driver = webdriver.Chrome()
 
+def addThreeMonth(data):
+	oldTime = datetime.strptime(data,'%Y-%m-%d')
+	if int(oldTime.day) != 1:
+		oldTime = oldTime + timedelta(days=30)
+		year = oldTime.year
+		month = oldTime.month
+		oldTime = str(year) + '-' + str(month) + '-' + str(1)
+		oldTime = datetime.strptime(oldTime,'%Y-%m-%d')
+	#print oldTime
+	for i in range(3):
+		_,all_2 = calendar.monthrange(int(oldTime.year), int(oldTime.month))
+		#print oldTime.year, oldTime.month
+		#print all_2
+		newTime = oldTime + timedelta(days=all_2)
+		oldTime = newTime
+		#print oldTime
+	oldTime = oldTime + timedelta(days=-1)
+	#print oldTime
+	return str(oldTime).split(' ')[0]
+
 def getZCSSUrlDict(url, driver=driver, pages = 299):
 	driver.get(url)
 	oldTime = old_time
 	ZCSSUrlDict = {}
 	while True:
 		monthUrl = []
-		driver.find_element_by_id('time').clear()
-		driver.find_element_by_id('time1').clear()
-		oldTime = datetime.strptime(oldTime,'%Y-%m-%d')
-		driver.find_element_by_id('time').send_keys(str(oldTime).split(' ')[0])
-		_,all = calendar.monthrange(int(oldTime.year), int(oldTime.month))
-		newTime = oldTime + timedelta(days=all-1)
-		driver.find_element_by_id('time1').send_keys(str(newTime).split(' ')[0])
+		try:
+			driver.find_element_by_id('time').clear()
+			driver.find_element_by_id('time1').clear()
+			driver.find_element_by_id('time').send_keys(str(oldTime))
+			newTime = addThreeMonth(oldTime)
+			driver.find_element_by_id('time1').send_keys(str(newTime))
+		except:
+			pass
 		print 'download ' + str(oldTime)
 		for page in range(pages):
 			nextPages = None
@@ -76,15 +97,22 @@ def getZCSSUrlDict(url, driver=driver, pages = 299):
 			else:
 				try:
 					nextPage = nextPages[2]
-				except:
+				except IndexError, e:
 					traceback.print_exc()
+					driver.find_element_by_id('time1').click()
+					driver.find_element_by_id('time1').send_keys('2000-01-01')
+					driver.find_element_by_id('search_sub').click()
 					break
+			time.sleep(random.randint(0,3))
+			try:
+				nextPage.click()
+			except:
+				pass
+		driver.close()
 
-			time.sleep(random.randint(0,10))
-			nextPage.click()
+
 		ZCSSUrlDict[str(oldTime).split(' ')[0]] = monthUrl
-		newTime = newTime + timedelta(days=1)
-		oldTime = str(newTime).split(' ')[0]
+		oldTime = newTime
 		if oldTime > now_time:
 			break
 	return ZCSSUrlDict
