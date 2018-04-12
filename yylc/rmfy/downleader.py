@@ -42,7 +42,7 @@ SLEEP_TIME = 1
 '''
 
 results = {}
-driver = webdriver.Chrome()
+
 
 def addThreeMonth(data):
 	oldTime = datetime.strptime(data,'%Y-%m-%d')
@@ -64,11 +64,13 @@ def addThreeMonth(data):
 	#print oldTime
 	return str(oldTime).split(' ')[0]
 
-def getZCSSUrlDict(url, driver=driver, pages = 299):
-	driver.get(url)
+def getZCSSUrlDict(url, pages = 299):
+
 	oldTime = old_time
 	ZCSSUrlDict = {}
 	while True:
+		driver = webdriver.Chrome()
+		driver.get(url)
 		monthUrl = []
 		try:
 			driver.find_element_by_id('time').clear()
@@ -82,13 +84,16 @@ def getZCSSUrlDict(url, driver=driver, pages = 299):
 		for page in range(pages):
 			nextPages = None
 			hrefs = []
-			driver.implicitly_wait(100)
-			results = driver.find_elements_by_css_selector('tr.listtr > td > span > a')
-			hrefs = [result.get_attribute('href') for result in results]
-			for href in hrefs:
-				monthUrl.append(href)
-			
-			nextPages = driver.find_elements_by_css_selector('a.next')
+			try:
+				driver.implicitly_wait(100)
+				results = driver.find_elements_by_css_selector('tr.listtr > td > span > a')
+				hrefs = [result.get_attribute('href') for result in results]
+				for href in hrefs:
+					monthUrl.append(href)
+				
+				nextPages = driver.find_elements_by_css_selector('a.next')
+			except:
+				pass
 			print 'it is ' + str(page)
 			if nextPages == None:
 				break
@@ -108,7 +113,10 @@ def getZCSSUrlDict(url, driver=driver, pages = 299):
 				nextPage.click()
 			except:
 				pass
-		driver.close()
+		try:
+			driver.close()
+		except:
+			pass
 
 
 		ZCSSUrlDict[str(oldTime).split(' ')[0]] = monthUrl
@@ -273,7 +281,7 @@ def main():
 	html = download('http://www.rmfysszc.gov.cn')
 	urls, provinces, _ = getProvinceNameUrl(html)
 	print len(urls), len(provinces), len(results)
-	for i in range(2):
+	for i in range(1,2):
 		url = results[i+1]['provinceUrl']
 		results[i+1]['noticeUrl'] = getNoticeUrl(url)
 		results[i+1]['urlList'] = getZCSSUrlDict(results[i+1]['noticeUrl'])
