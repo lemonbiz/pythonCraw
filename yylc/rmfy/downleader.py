@@ -64,8 +64,8 @@ def addThreeMonth(data):
 	#print oldTime
 	return str(oldTime).split(' ')[0]
 
-def getZCSSUrlDict(url, pages = 299):
 
+def getZCSSUrlDict(url, pages = 299):
 	oldTime = old_time
 	ZCSSUrlDict = {}
 	while True:
@@ -87,13 +87,42 @@ def getZCSSUrlDict(url, pages = 299):
 			try:
 				driver.implicitly_wait(100)
 				results = driver.find_elements_by_css_selector('tr.listtr > td > span > a')
+				justiceNames = driver.find_elements_by_css_selector('tr.listtr > td > span')
+
+				justiceName = [name.text for name in justiceNames]
+				print len(justiceName)
+				a = 0
+				putTime = []
+				jsNames = []
+				for i in range(len(justiceName)):
+					if a == 0:
+						a = 1
+					elif a == 1:
+						a = 2
+						jsNames.append(justiceName[i])
+						#print justiceName[i]
+					elif a == 2:
+						a = 0
+						putTime.append(justiceName[i])
+
+				print len(jsNames)
+
+				print len(putTime) 
+					
 				hrefs = [result.get_attribute('href') for result in results]
-				for href in hrefs:
-					monthUrl.append(href)
-				
+				titles = [result.get_attribute('title') for result in results]
+				for i in range(len(hrefs)):
+					print titles[i]
+					print jsNames[i]
+					print putTime[i]
+					content = [now_time, titles[i], jsNames[i], putTime[i], hrefs[i]]
+					#print content
+					monthUrl.append(content)
+					#time.sleep(3)
+					
 				nextPages = driver.find_elements_by_css_selector('a.next')
-			except:
-				pass
+			except Exception, e:
+				print e
 			print 'it is ' + str(page)
 			if nextPages == None:
 				break
