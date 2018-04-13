@@ -29,6 +29,8 @@ sys.setdefaultencoding( "utf-8" )
 
 old_time = '2018-01-01'
 now_time = time.strftime('%Y-%m-%d', time.localtime())
+results = {}
+listI = [i for i in range(33)]
 
 DEFAULT_AGENT = 'wswp'
 DEFAULT_DELAY = 5
@@ -41,7 +43,7 @@ SLEEP_TIME = 1
 
 '''
 
-results = {}
+
 
 
 def addThreeMonth(data):
@@ -90,7 +92,7 @@ def getZCSSUrlDict(url, pages = 299):
 				justiceNames = driver.find_elements_by_css_selector('tr.listtr > td > span')
 
 				justiceName = [name.text for name in justiceNames]
-				print len(justiceName)
+				#print len(justiceName)
 				a = 0
 				putTime = []
 				jsNames = []
@@ -105,16 +107,16 @@ def getZCSSUrlDict(url, pages = 299):
 						a = 0
 						putTime.append(justiceName[i])
 
-				print len(jsNames)
+				#print len(jsNames)
 
-				print len(putTime) 
+				#print len(putTime) 
 					
 				hrefs = [result.get_attribute('href') for result in results]
 				titles = [result.get_attribute('title') for result in results]
 				for i in range(len(hrefs)):
-					print titles[i]
-					print jsNames[i]
-					print putTime[i]
+					#print titles[i]
+					#print jsNames[i]
+					#print putTime[i]
 					content = [now_time, titles[i], jsNames[i], putTime[i], hrefs[i]]
 					#print content
 					monthUrl.append(content)
@@ -306,10 +308,35 @@ def getNoticeUrl(url=None):
 	r = webpage_regex.findall(html)[0]
 	return r
 
+def threadCrawProvince():
+	i = listI.pop()
+	url = results[i+1]['provinceUrl']
+	results[i+1]['noticeUrl'] = getNoticeUrl(url)
+	results[i+1]['urlList'] = getZCSSUrlDict(results[i+1]['noticeUrl'])
+	filename = 'provinceName/' + str(i) + '.json'
+	fileReslut = open(filename, 'w')
+	json.dump(results[i+1], fileReslut, ensure_ascii=False)
+	fileReslut.close()
+	print 'ok'
+
 def main():
+	if not os.path.exists("provinceName/"):
+		os.mkdir("provinceName/")
 	html = download('http://www.rmfysszc.gov.cn')
 	urls, provinces, _ = getProvinceNameUrl(html)
 	print len(urls), len(provinces), len(results)
+	threads = []
+	while threads or listI:
+		for thread in threads:
+			if not thread.is_alive():
+				threads.remove(thread)
+		while len(threads) < 10 and listI:
+			thread = threading.Thread(target=threadCrawProvince)
+			thread.setDaemon(True)
+			thread.start()
+			threads.append(thread)
+
+	'''
 	for i in range(1,2):
 		url = results[i+1]['provinceUrl']
 		results[i+1]['noticeUrl'] = getNoticeUrl(url)
@@ -319,7 +346,7 @@ def main():
 		json.dump(results[i+1], fileReslut, ensure_ascii=False)
 		fileReslut.close()
 		print 'ok'
-
+	'''
 
 if __name__ == "__main__":
 	main()
