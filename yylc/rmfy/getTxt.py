@@ -1,32 +1,25 @@
 #create by yangyinglong at 20180411 for yylc crawl ymfy
 # -*- coding: utf-8 -*- 
 
-import urllib2
+import urllib.request as urllib2
+import urllib.parse as urlparse
 import builtwith
 import random
 import whois
 import re
-import urlparse
 from datetime import datetime, timedelta
 import time
-import robotparser
-import Queue
 import csv
 import lxml.html
 import socket
 import os
 import pickle
-from pymongo import MongoClient
 import threading
 import sys
 from selenium import webdriver
 import json
 import calendar
 import traceback
-import codecs
-
-reload(sys)
-sys.setdefaultencoding( "utf-8" )
 
 old_time = '2018-01-01'
 now_time = time.strftime('%Y-%m-%d', time.localtime())
@@ -61,7 +54,7 @@ class DiskCache(object):
 	def __getitem__(self, url):
 		path = self.url_to_path(url)
 		if os.path.exists(path):
-			with open(path, 'r') as fp:
+			with open(path, 'rb') as fp:
 				result, timestamp = pickle.load(fp)
 				if self.has_expired(timestamp):
 					raise KeyError(url + ' has expires')
@@ -73,10 +66,10 @@ class DiskCache(object):
 		path = self.url_to_path(url)
 		folder = os.path.dirname(path)
 		timestamp = datetime.utcnow()
-		data = pickle.dumps((result, timestamp)).encode('utf8')  
+		data = pickle.dumps((result, timestamp))
 		if not os.path.exists(folder):
 			os.makedirs(folder)
-		with codecs.open(path, 'w', encoding='utf8') as fp:
+		with open(path, 'wb') as fp:
 			fp.write(data)
 
 	def has_expired(self, timestamp):
@@ -126,26 +119,23 @@ class Downloader:
 			proxy = random.choice(self.proxies) if self.proxies else None
 			headers = {'User-agent': self.user_agent}
 			result = self.download(url, headers, proxy, self.num_retries)
-			print result
 			if self.cache:
 				self.cache[url] = result
 		return result['html']
 
 	def download(self, url, headers, proxy, num_retrie, data = None):
-		print 'Download:', url
+		print ('Download:', url)
 		request = urllib2.Request(url, data, headers or {})
 		opener = self.opener or urllib2.build_opener()
 		if proxy:
 			proxy_params = {urlparse.urlparse(url).scheme: proxy}
 			opener.add_handler(urllib2.ProxyHandler(proxy_params))
 		try:
-			type = sys.getfilesystemencoding() 
 			response = opener.open(request)
-			html = response.read().decode('utf-8').encode(type)
-			
+			html = response.read().decode('utf-8')
 			code = response.code
 		except Exception as e:
-			print 'Download error', str(e)
+			print ('Download error', str(e))
 			html = ''
 			if hasattr(e, 'code'):
 				code = e.code
@@ -158,7 +148,7 @@ class Downloader:
 def threaded_crawler(urlList=None, delay=5, cache=None, scrape_callback=None, user_agent='wswp', proxies=None, num_retries=1, max_threads=10, timeout=60):
 	crawl_queue = urlList
 	D = Downloader(cache=cache, delay=delay, user_agent=user_agent, proxies=proxies, num_retries=num_retries, timeout=timeout)
-	print 'in threaded_crawler'
+	print ('in threaded_crawler')
 	def process_queue():
 		while True:
 			try:
@@ -167,7 +157,8 @@ def threaded_crawler(urlList=None, delay=5, cache=None, scrape_callback=None, us
 				break
 			else:
 				html = D(url)
-				print html
+				print(html[:500])
+				#print html
 				'''
 				if scrape_callback:
 					try:
@@ -197,17 +188,20 @@ def threaded_crawler(urlList=None, delay=5, cache=None, scrape_callback=None, us
 
 
 def main():
-	for i in range(1):
-		path = 'provinceName/' + str(i) + '.json'
+	for i in range(33):
+		path = 'provinceName/' + str(31) + '.json'
 		with open(path, 'r') as fp:
+			urlList = []
 			dict_load = json.load(fp)
-			print type(dict_load['urlList'])
+			#print type(dict_load['urlList'])
 			for key in dict_load['urlList']:
-				print 'download: ' + str(key)
-				urlList = dict_load['urlList'][key]
+				print ('download: ' + str(key))
+				for key_1 in dict_load['urlList'][key]:
+					#print key_1[4]
+					urlList.append(key_1[4])
+					#print urlList
 				threaded_crawler(urlList=urlList, delay=5, cache=DiskCache(), scrape_callback=None, user_agent='wswp', proxies=None, num_retries=1, max_threads=10, timeout=60)
 				
-
 
 
 if __name__ == "__main__":

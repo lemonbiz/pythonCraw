@@ -1,22 +1,20 @@
 #create by yangyinglong at 20180409 for yylc crawl ymfy
 # -*- coding: utf-8 -*- 
+# coding: utf-8
 
-import urllib2
+import urllib.request as urllib2
+import urllib.parse as urlparse
 import builtwith
 import random
 import whois
 import re
-import urlparse
 from datetime import datetime, timedelta
 import time
-import robotparser
-import Queue
 import csv
 import lxml.html
 import socket
 import os
 import pickle
-from pymongo import MongoClient
 import threading
 import sys
 from selenium import webdriver
@@ -24,8 +22,6 @@ import json
 import calendar
 import traceback
 
-reload(sys)
-sys.setdefaultencoding( "utf-8" )
 
 old_time = '2018-01-01'
 now_time = time.strftime('%Y-%m-%d', time.localtime())
@@ -82,7 +78,7 @@ def getZCSSUrlDict(url, pages = 299):
 			driver.find_element_by_id('time1').send_keys(str(newTime))
 		except:
 			pass
-		print 'download ' + str(oldTime)
+		print ('download ' + str(oldTime))
 		for page in range(pages):
 			nextPages = None
 			hrefs = []
@@ -123,9 +119,9 @@ def getZCSSUrlDict(url, pages = 299):
 					#time.sleep(3)
 					
 				nextPages = driver.find_elements_by_css_selector('a.next')
-			except Exception, e:
-				print e
-			print 'it is ' + str(page)
+			except:
+				pass
+			print ('it is ' + str(page))
 			if nextPages == None:
 				break
 			if page == 0:
@@ -133,7 +129,7 @@ def getZCSSUrlDict(url, pages = 299):
 			else:
 				try:
 					nextPage = nextPages[2]
-				except IndexError, e:
+				except IndexError:
 					traceback.print_exc()
 					driver.find_element_by_id('time1').click()
 					driver.find_element_by_id('time1').send_keys('2000-01-01')
@@ -250,7 +246,7 @@ class Downloader:
 		return result['html']
 
 	def download(self, url, headers, proxy, num_retrie, data = None):
-		print 'Download:', url
+		print ('Download:', url)
 		request = urllib2.Request(url, data, headers or {})
 		opener = self.opener or urllib2.build_opener()
 		if proxy:
@@ -261,7 +257,7 @@ class Downloader:
 			html = response.read()
 			code = response.code
 		except Exception as e:
-			print 'Download error', str(e)
+			print ('Download error', str(e))
 			html = ''
 			if hasattr(e, 'code'):
 				code = e.code
@@ -283,17 +279,17 @@ def getProvinceNameUrl(html):
 	tree = str(tree.cssselect('table.region')[0].text_content())
 	provinces = tree.split(' ')
 	pro = []
-	with open("provinces.txt", 'wb') as fp:
+	with open("provinces.txt", 'w') as fp:
 		for province in provinces:
 			if province != '\r\n' and province != '' and province != '\r\n\r\n':
 				#print province
 				province = province.replace('\r\n','')
 				pro.append(province)
-				fp.write(province+'\n')
+				fp.write(province + '\n')
 	#print urls
 	hand = re.compile(r'http')
 	urlhand = 'http://www.rmfysszc.gov.cn'
-	with open('results.txt', 'wb') as fp:
+	with open('results.txt', 'w') as fp:
 		for i in range(35):
 			if not re.match(hand ,urls[i]):
 				urls[i] = urlhand + urls[i]
@@ -303,9 +299,10 @@ def getProvinceNameUrl(html):
 	return urls, pro, results
 
 def getNoticeUrl(url=None):
-	html = download(url)
+	html = download(url).decode('utf-8')
 	webpage_regex = re.compile(r'<area shape="rect" coords="184,5,311,29" href="(.*?)"', re.IGNORECASE)
 	r = webpage_regex.findall(html)[0]
+	#print(r)
 	return r
 
 def threadCrawProvince():
@@ -317,20 +314,21 @@ def threadCrawProvince():
 	fileReslut = open(filename, 'w')
 	json.dump(results[i+1], fileReslut, ensure_ascii=False)
 	fileReslut.close()
-	print 'ok'
+	print ('ok')
 
 def main():
 	if not os.path.exists("provinceName/"):
 		os.mkdir("provinceName/")
-	html = download('http://www.rmfysszc.gov.cn')
+	html = download('http://www.rmfysszc.gov.cn').decode('utf-8')
 	urls, provinces, _ = getProvinceNameUrl(html)
-	print len(urls), len(provinces), len(results)
+	print (len(urls), len(provinces), len(results))
+	print (results)
 	threads = []
 	while threads or listI:
 		for thread in threads:
 			if not thread.is_alive():
 				threads.remove(thread)
-		while len(threads) < 10 and listI:
+		while len(threads) < 1 and listI:
 			thread = threading.Thread(target=threadCrawProvince)
 			thread.setDaemon(True)
 			thread.start()
