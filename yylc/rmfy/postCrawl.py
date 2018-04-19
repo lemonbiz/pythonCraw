@@ -19,12 +19,22 @@ import json
 import calendar
 import traceback
 import copy
+from pyquery import PyQuery as pq
+from lxml import etree
 
 URL = 'http://www1.rmfysszc.gov.cn/News/handler.aspx'
 SLEEP_TIME = 1
 ERROR_RESPONSE = 0
 ERROR_DOWNLOAD = 0
+DEFAULT_AGENT = 'wswp'
+DEFAULT_DELAY = 5
+DEFAULT_RETRIES = 1
+DEFAULT_TIMEOUT = 60
+SLEEP_TIME = 1
 
+count = 0
+all_file = 0
+file_find_id = []
 
 provinceInformain = {
 	90:'北京市', 
@@ -85,6 +95,201 @@ requestHeaders = {
 	'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.186 Safari/537.36',
 	'X-Requested-With':'XMLHttpRequest'
 }
+
+class DiskCache(object):
+	"""docstring for DiskCache"""
+	def __init__(self, cache_dir='cache',expires=timedelta(days=1)):
+		self.cache_dir = cache_dir
+		self.expires = expires
+
+
+	def url_to_path(self, url):
+		components = urlparse.urlsplit(url)
+		path = components.path
+		if not path:
+			path = '/index.html'
+		elif path.endswith('/'):
+			path = path + '/index.html'
+		filename = components.netloc + path + components.query
+		filename = re.sub('[^/0-9a-zA-Z\-.,;_]', '_', filename)
+		filename = '/'.join(segment[:255] for segment in filename.split('/'))
+		return os.path.join(self.cache_dir, filename)
+
+	def __getitem__(self, url):
+		path = self.url_to_path(url)
+		if os.path.exists(path):
+			with open(path, 'rb') as fp:
+				result,_ = pickle.load(fp)
+				if self.has_expired(timestamp):
+					raise KeyError(url + ' has expires')
+				return result
+		else:
+			raise KeyError(url + ' does not exist')
+
+	def __setitem__(self, url, result):
+		path = self.url_to_path(url)
+		folder = os.path.dirname(path)
+		timestamp = datetime.utcnow()
+		#data = pickle.dumps((result, timestamp))
+		if not os.path.exists(folder):
+			os.makedirs(folder)
+		with open(path, 'w', encoding='utf-8') as fp:
+			fp.write(result)
+
+	def has_expired(self, timestamp):
+		return datetime.utcnow() > timestamp + self.expires
+
+count = 0
+all_file = 0
+file_find_id = []
+#scrape_callback(0, html, [title, time_put, province_name])
+def extract(source_id,text,meta_data=[]):
+    html = etree.HTML(text)
+    d = pq(html)
+    data = {}
+    '''字段名 同 crawler.fixed_asset 表字段'''
+    #传入数据
+    if meta_data:
+        data['province'] = meta_data[2]
+        #data['url'] = meta_data['url']
+        data['declaration_time'] = meta_data[1] #发布日期
+
+    #title = d('#Title > h1').text()
+    title = meta_data[0]
+    if title:
+        data['name'] = title
+
+    print('source_id:%s' % source_id)
+    content = d('#Content').text()
+    if content:
+        global count
+        file_find_id.append(source_id)
+        count = count + 1
+    else:
+        content = d('.xmxx_titlemaincontent').text()
+        if content:
+            global count
+            file_find_id.append(source_id)
+            count = count + 1
+    print(content)
+
+    #print('content:%s'% content)
+    #评估价
+    evaluate_price= get_search(re.search(r'(?<=评估价：)[\d,\.]+?(元|万元)',content))
+    print('评估价：%s' % evaluate_price)
+    #起拍价
+    start_price= get_search(re.search(r'(?<=起拍价：)[\d,\.]+?(元|万元)',content))
+    print('起拍价:%s' % start_price)
+    #保证金
+    cash_deposit= get_search(re.search(r'(?<=保证金：)[\d,\.]+?(元|万元)',content))
+    print('保证金:%s' % cash_deposit)
+    #增价幅度
+    min_raise_price = get_search(re.search(r'(?<=增(加|价)幅度：)[\d,\.]+?(元|万元)',content))
+    print('增价幅度:%s' % min_raise_price)
+    #建筑面积
+    construction_area = get_search(re.search(r'((?<=建筑面积)|(?<=建筑面积(：|为|是)))[\d,\.]+?(平方米|㎡|公顷)',content))
+    print('建筑面积:%s' % construction_area)
+
+    #城市
+    city   = get_search(re.search(r'\w+?市',content))
+    print(city)
+    #区
+    district    = get_search(re.search(r'\w+?区',content))
+    print(district)
+
+    #日期区间
+    date = get_search(re.search(r'\d{2,4}[年\-]\d{1,2}[月\-](\d{1,2}[日\-])?(\d{1,2}[时：:])?\w{1,20}?\d{2,4}[年\-]\d{1,2}[月\-](\d{1,2}[日\-])?(\d{1,2}[时：:])?',content))
+    print('日期区间:%s' % date)
+
+    #address  从标题title里面提取地址
+    address_search = get_search(re.search(r'(关于.+的公告)|(位于.+)',title))
+    if address_search:
+        address = address_search.replace('关于','').replace('的公告','')
+        print('address:%s' % address)
+    else:
+        print('address__title:%s' % title)
+    print(data)
+
+    #日期
+    date1 = get_search(re.search(r'\d{2,4}[年\-]\d{1,2}[月\-](\d{1,2}[日\-])?(\d{1,2}[时：:])?',content))
+    print('日期:%s' % date1)
+    print('***********************************')
+    print('***********************************')
+
+def get_search(search):
+    if search:
+        return search.group()
+    return None
+
+
+class Throttle:
+	def __init__(self, delay):
+		self.delay = delay
+		self.domains = {}
+
+	def wait(self, url):
+		domain = urlparse.urlparse(url).netloc
+		last_accessed = self.domains.get(domain)
+
+		if self.delay > 0 and last_accessed is not None:
+			sleep_secs = self.delay - (datetime.now() - 
+				last_accessed).seconds
+			if sleep_secs > 0:
+				time.sleep(sleep_secs)
+		self.domains[domain] = datetime.now()
+
+
+class Downloader:
+	def __init__(self, delay=DEFAULT_DELAY, user_agent=DEFAULT_AGENT, proxies=None, num_retries=DEFAULT_RETRIES, timeout=DEFAULT_TIMEOUT, opener=None, cache=None):
+		socket.setdefaulttimeout(timeout)
+		self.throttle = Throttle(delay)
+		self.user_agent = user_agent
+		self.proxies = proxies
+		self.num_retries = num_retries
+		self.opener = opener
+		self.cache = cache
+
+
+	def __call__(self, url):
+		result = None
+		if self.cache:
+			try:
+				result = self.cache[url]
+			except KeyError:
+				pass
+			else:
+				if self.num_retries > 0 and 500 <= result['code'] < 600:
+					result = None
+		if result is None:
+			self.throttle.wait(url)
+			proxy = random.choice(self.proxies) if self.proxies else None
+			headers = {'User-agent': self.user_agent}
+			result = self.download(url, headers, proxy, self.num_retries)
+			if self.cache:
+				self.cache[url] = result
+		return result
+
+	def download(self, url, headers, proxy, num_retrie, data = None):
+		print ('Download:', url)
+		request = urllib2.Request(url, data, headers or {})
+		opener = self.opener or urllib2.build_opener()
+		if proxy:
+			proxy_params = {urlparse.urlparse(url).scheme: proxy}
+			opener.add_handler(urllib2.ProxyHandler(proxy_params))
+		try:
+			response = opener.open(request)
+			html = response.read().decode('utf-8')
+			code = response.code
+		except Exception as e:
+			print ('Download error', str(e))
+			html = ''
+			if hasattr(e, 'code'):
+				code = e.code
+				if num_retrie > 0 and 500 <= code < 600:
+					return _get(url, headers, proxy, num_retrie-1,data)
+			else:
+				code = None
+		return html
 
 def add_one_day(data):
 	'get a data as \'2018-08-08\' return a data add one day than it'
@@ -166,6 +371,41 @@ def get_response(data=formData):
 	except:
 		return ERROR_RESPONSE
 
+def threaded_download(urlList=None, delay=5, cache=None, scrape_callback=None, user_agent='wswp', proxies=None, num_retries=1, max_threads=10, timeout=60):
+	url_list = urlList
+	print("len(url_list): ", str(len(url_list)))
+	print('in threead_download')
+	D = Downloader(cache=cache, delay=delay, user_agent=user_agent, proxies=proxies, num_retries=num_retries, timeout=timeout)
+	def process_down():
+		try:
+			inf = url_list.pop()
+			url = inf[0]
+			title = inf[1]
+			time_put = inf[2]
+			province_name = inf[3]
+		except IndexError:
+			return
+		else:
+			html = D(url)
+			print('*************************************')
+			#print(html[:100])
+			
+			if scrape_callback:
+				scrape_callback(0, html, [title, time_put, province_name])
+
+
+	threads = []
+	while url_list or threads:
+		for thread in threads:
+			if not thread.is_alive():
+				threads.remove(thread)
+		while len(threads) < max_threads and url_list:
+			thread = threading.Thread(target=process_down)
+			thread.setDaemon(True)
+			thread.start()
+			threads.append(thread)
+		time.sleep(SLEEP_TIME)
+
 def resolution(content, id=0):
 	'resolution response return url, notice title, court name, Release time'
 	notice_regex = re.compile(r'<a href=\'(.*?)\' title=\'(.*?)\' target=\'_blank\'>.*?class=\'n_c_l\' title=\'(.*?)\'.*?color: #313131;\'>(.*?)</span>', re.IGNORECASE)
@@ -176,9 +416,10 @@ def write_result(form_data, results, id):
 	data = form_data['time']
 	js = {}
 	index = 0
+	url_list = []
 	for result in results:
 		index = index + 1
-		print(result)
+		#print(result)
 		js[index] = {}
 		js[index]["爬取时间'"]=time.strftime('%Y-%m-%d', time.localtime())
 		js[index]["公告标题"]=result[1]
@@ -186,9 +427,13 @@ def write_result(form_data, results, id):
 		js[index]['连接地址']=result[0]
 		js[index]['发布时间']=result[3]
 		js[index]['发布省份']=provinceInformain[id]
+		#print(str(result[0]), 'aaaaaaaaaaaa')
+		url_list.append([result[0],result[1],result[3],provinceInformain[id]])
 	information = json.dumps(js, sort_keys=True, ensure_ascii=False)
 	path = 'province/'+str(id)+'/'+form_data['time']+'.json'
-	print(information)
+	#print(information)
+	print('jijiang threead_download')
+	threaded_download(urlList=url_list, cache=DiskCache(), scrape_callback=extract)
 	with open(path, 'w', encoding='utf-8') as fp:
 		print('open successed')
 		json.dump(information, fp, ensure_ascii=False)
@@ -205,7 +450,7 @@ def downloader(form_data=None, id=0):
 			if results != []:
 				for result in results:
 					information.append(result)
-				print(information)
+				#print(information)
 				page = page + 1
 				form_data['page'] = str(page)
 			else:
@@ -221,7 +466,7 @@ def downloader(form_data=None, id=0):
 	form_data['page'] = str(1)
 	write_log(form_data, id)
 
-def threaded_crawler(max_threads=3):
+def threaded_crawler(max_threads=10):
 	provinceId = [90, 91, 92, 93, 2589, 95, 3584, 97, 98, 99, 100, 101, 102,
 			 	  103, 104, 105, 106, 107, 108, 9863, 110, 111, 112, 113, 
 			 	  114, 12449, 116, 117, 118, 14003, 13921, 14625]	
@@ -231,7 +476,7 @@ def threaded_crawler(max_threads=3):
 		print(id)
 		while True:
 			form_data = read_log(id)
-			if form_data['time'] > time.strftime('%Y-%m-%d', time.localtime()):
+			if form_data['time'] == time.strftime('%Y-%m-%d', time.localtime()):
 				break
 			else:
 				downloader(form_data, id)
@@ -267,3 +512,4 @@ def main():
 
 if __name__ == '__main__':
 	main()
+	time.sleep(60*60*24)
