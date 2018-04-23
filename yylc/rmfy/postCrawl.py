@@ -119,9 +119,7 @@ class DiskCache(object):
 		path = self.url_to_path(url)
 		if os.path.exists(path):
 			with open(path, 'rb') as fp:
-				result,_ = pickle.load(fp)
-				if self.has_expired(timestamp):
-					raise KeyError(url + ' has expires')
+				result= fp.read()
 				return result
 		else:
 			raise KeyError(url + ' does not exist')
@@ -158,7 +156,7 @@ def extract(source_id,text,meta_data=[]):
     title = meta_data[0]
     if title:
         data['name'] = title
-
+    print('***********************************')
     print('source_id:%s' % source_id)
     content = d('#Content').text()
     if content:
@@ -167,35 +165,137 @@ def extract(source_id,text,meta_data=[]):
         count = count + 1
     else:
         content = d('.xmxx_titlemaincontent').text()
-        if content:
-            global count
-            file_find_id.append(source_id)
-            count = count + 1
+        title_content = d('table.xmxx_titlemain').text()
+        if title_content:
+        	content = content + title_content
+    content = content.replace(' ','').replace('：', '').replace('\n', '').replace('￥','')
     print(content)
 
     #print('content:%s'% content)
     #评估价
-    evaluate_price= get_search(re.search(r'(?<=评估价：)[\d,\.]+?(元|万元)',content))
-    print('评估价：%s' % evaluate_price)
+    '''
+    webpage_regex = re.compile(r'<a href="(.*?)"', re.IGNORECASE)
+	urls = webpage_regex.findall(html)
+    '''
+    price = re.compile(r'((?<=评估价)|(?<=保留价)|(?<=保留底价)|(?<=参考价)|(?<=参考))(.*?)(元|万元|万)', re.IGNORECASE)
+    ep = price.findall(content)
+    evaluate_price = []
+    if len(ep) != 0:
+    	for i in ep:
+    		a = i[1]+i[2]
+    		a = a.replace('价','').replace('（','').replace('标的一','').replace('人民币','').replace('为','')
+    		if a != '万元' and a != '元' and a not in evaluate_price:
+    			evaluate_price.append(a)
+
+    print('评估价:', end=' ')
+    print(evaluate_price)
+    #evaluate_price= get_search(re.search(r'((?<=评估价)|(?<=保留价)|(?<=保留底价)|(?<=参考价))(.*?)(元|万元)',content))
+    #print('评估价：%s' % evaluate_price)
+
     #起拍价
-    start_price= get_search(re.search(r'(?<=起拍价：)[\d,\.]+?(元|万元)',content))
+    start_price= get_search(re.search(r'(?<=起拍价)[\d,\.]+?(元|万元)',content))
     print('起拍价:%s' % start_price)
+
     #保证金
-    cash_deposit= get_search(re.search(r'(?<=保证金：)[\d,\.]+?(元|万元)',content))
+    cash_deposit= get_search(re.search(r'((?<=保证金)|(?<=保证金为))(.*?)(元|万元)',content))
+    if cash_deposit != None and len(cash_deposit) > 20:
+    	cash_deposit = ash_deposit= get_search(re.search(r'(?<=保证金)(.*?)(元|万元)',cash_deposit))
+    if cash_deposit:
+    	cash_deposit = cash_deposit.replace('为','').replace('人民币','')
     print('保证金:%s' % cash_deposit)
+
     #增价幅度
-    min_raise_price = get_search(re.search(r'(?<=增(加|价)幅度：)[\d,\.]+?(元|万元)',content))
+    min_raise_price = get_search(re.search(r'(?<=增(加|价)幅度)[\d,\.]+?(元|万元)',content))
     print('增价幅度:%s' % min_raise_price)
+
     #建筑面积
-    construction_area = get_search(re.search(r'((?<=建筑面积)|(?<=建筑面积(：|为|是)))[\d,\.]+?(平方米|㎡|公顷)',content))
-    print('建筑面积:%s' % construction_area)
+    '''
+    webpage_regex = re.compile(r'<a href="(.*?)"', re.IGNORECASE)
+	urls = webpage_regex.findall(html)
+    '''
+    area =re.compile(r'((?<=建筑面积约)|(?<=建筑面积)|(?<=建面)|(?<=建筑面积为)|(?<=建筑面积是)|(?<=建筑面积共计))(.*?)(平方米|㎡|公顷|M2|m2)',re.IGNORECASE)
+    ha = area.findall(content)
+    housing_area = []
+    if len(ha) != 0:
+    	for i in ha:
+    		a = i[1]+i[2]
+    		a = a.replace('约','').replace('为','').replace('是','').replace('共计','')
+    		if a not in housing_area:
+    			housing_area.append(a)
+    #construction_area = get_search(re.search(r'((?<=面积约)|(?<=面积)|(?<=面积为)|(?<=面积是)|(?<=面积共计))[\d,\.]+?(平方米|㎡|公顷|M2)',content))
+    print('建筑面积:', end=' ')
+    print(housing_area)
+    #土地面积
+    area =re.compile(r'((?<=土地面积约)|(?<=土地面积)|(?<=土地证载面积)|(?<=土地面积为)|(?<=土地面积是)|(?<=土地面积共计))(.*?)(平方米|㎡|公顷|M2|m2)',re.IGNORECASE)
+    la = area.findall(content)
+    land_area = []
+    if len(la) != 0:
+    	for i in ca:
+    		a = i[1]+i[2]
+    		a = a.replace('约','').replace('为','').replace('是','').replace('共计','')
+    		if a not in land_area:
+    			land_area.append(a)
+    #construction_area = get_search(re.search(r'((?<=面积约)|(?<=面积)|(?<=面积为)|(?<=面积是)|(?<=面积共计))[\d,\.]+?(平方米|㎡|公顷|M2)',content))
+    print('土地面积:', end=' ')
+    print(land_area)
+
+
+    #拍卖地点
+    trading_place = get_search(re.search(r'((?<=拍卖地点)|(?<=变卖电子竞价地点))(.*?)(、)', content))
+    if trading_place:
+    	trading_place = trading_place[:-2]
+    else:
+    	trading_place = get_search(re.search(r'((?<=拍卖地点)|(?<=变卖电子竞价地点))(.*?)((。)|(;))', content))
+    	if trading_place != None:
+    		trading_place = trading_place[:-1]
+    print('交易地点:%s' % trading_place)
+
+    #建筑性质
+    if '营业' in content or '商业' in content or '商铺' in content or '门面房' in content:
+    	land_type = '商铺'
+    elif '工业' in content or '厂房' in content or '库房' in content or '厂' in content:
+    	land_type = '厂房'
+    elif '仓库' in content:
+    	land_type = '仓库'
+    elif '商用' in content:
+    	land_type = '商业'
+    elif '商品房' in content or '商服用房' in content:
+    	land_type = '商住房'
+    elif '住宅' in content:
+    	land_type = '住宅'
+    elif '别墅' in content:
+    	land_type = '别墅'
+    else:
+    	land_type = '未知'
+    print('建筑性质:%s' % land_type)
+
 
     #城市
-    city   = get_search(re.search(r'\w+?市',content))
-    print(city)
+    city = get_search(re.search(r'\w+?市',content))
+    if city != None:
+    	if '受' in city:
+    		city = city.split('受')[-1]
+    	if '于' in city:
+    		city = city.split('于')[-1]
+    	if len(city) > 6:
+    		city = city[-3:]
+    	city = city.replace('在', '')
+    	city = city.replace('拍卖标的', '')
+    print('城市:%s' % city)
+
     #区
-    district    = get_search(re.search(r'\w+?区',content))
-    print(district)
+    district = get_search(re.search(r'\w+?((区)|(县)|(镇))',content))
+    
+    if district != None:
+	    if '受' in district:
+	    	district = district.split('受')[-1]
+	    if '于' in district:
+	    	district = district.split('于')[-1]
+	    if len(district) > 10:
+	    	district = district[-8:]
+	    district = district.replace('在', '')
+	    district = district.replace('拍卖标的', '')
+    print('地区:%s' % district)
 
     #日期区间
     date = get_search(re.search(r'\d{2,4}[年\-]\d{1,2}[月\-](\d{1,2}[日\-])?(\d{1,2}[时：:])?\w{1,20}?\d{2,4}[年\-]\d{1,2}[月\-](\d{1,2}[日\-])?(\d{1,2}[时：:])?',content))
@@ -204,10 +304,21 @@ def extract(source_id,text,meta_data=[]):
     #address  从标题title里面提取地址
     address_search = get_search(re.search(r'(关于.+的公告)|(位于.+)',title))
     if address_search:
-        address = address_search.replace('关于','').replace('的公告','')
-        print('address:%s' % address)
+        address = address_search.replace('关于','').replace('的公告','') \
+        .replace('（第二次拍卖）','').replace('（第一次拍卖）','').replace('司法变卖','')
     else:
-        print('address__title:%s' % title)
+    	address = title.replace('司法拍卖','').replace('司法变卖','').replace('公告','') \
+    	.replace('拍卖','') \
+    	.replace('(第三次)','').replace('(第一次)','').replace('(第二次)','')
+    	if len(address) < 8:
+    		address = get_search(re.search(r'((?<=拍卖标的)|(?<=以下标的))[\d,\.]+?(室|号)',content))
+    		if address is None:
+    			address = get_search(re.search(r'((?<=拍卖标的)|(?<=以下标的))[\d,\.]+?(，|。)',content))
+    		else:
+    			address = get_search(re.search(r'((?<=对)|(?<=以下标的))[\d,\.]+?(进行)',content))
+    if address:
+    	address = address.replace('：','').replace('。','').replace('，','')
+    print('详细地址:%s' % address)
     print(data)
 
     #日期
@@ -258,8 +369,8 @@ class Downloader:
 			except KeyError:
 				pass
 			else:
-				if self.num_retries > 0 and 500 <= result['code'] < 600:
-					result = None
+				#if self.num_retries > 0 and 500 <= result['code'] < 600:
+				result = None
 		if result is None:
 			self.throttle.wait(url)
 			proxy = random.choice(self.proxies) if self.proxies else None
@@ -270,7 +381,7 @@ class Downloader:
 		return result
 
 	def download(self, url, headers, proxy, num_retrie, data = None):
-		print ('Download:', url)
+		#print ('Download:', url)
 		request = urllib2.Request(url, data, headers or {})
 		opener = self.opener or urllib2.build_opener()
 		if proxy:
@@ -324,7 +435,7 @@ def write_log(form_data, id):
 	with open(path, 'w', encoding='utf-8') as fp:
 		log = json.dumps(form_data, sort_keys=True, ensure_ascii=False, indent=4, separators=(',', ': '))
 		json.dump(log, fp)
-		print('log write success')
+		#print('log write success')
 
 
 def read_log(id):
@@ -356,42 +467,46 @@ def get_response(data=formData):
 	'post requests to the server with form data and headers, return response, str'
 	try:
 		#print(data)
-		print('111')
+		#print('111')
 		response = requests.post(URL, data=data, headers=requestHeaders, timeout=30)
 		response.raise_for_status()
-		print('222')
+		#print('222')
 		response.encoding = response.apparent_encoding
 		#print(response.encoding)
 		content = response.text
 		#print(type(content))
 		#print(len(content))
 		#print(content)
-		print('response success')
+		#print('response success')
 		return content
 	except:
 		return ERROR_RESPONSE
 
 def threaded_download(urlList=None, delay=5, cache=None, scrape_callback=None, user_agent='wswp', proxies=None, num_retries=1, max_threads=10, timeout=60):
 	url_list = urlList
-	print("len(url_list): ", str(len(url_list)))
-	print('in threead_download')
+	#print("len(url_list): ", str(len(url_list)))
+	#print('in threead_download')
 	D = Downloader(cache=cache, delay=delay, user_agent=user_agent, proxies=proxies, num_retries=num_retries, timeout=timeout)
 	def process_down():
 		try:
 			inf = url_list.pop()
-			url = inf[0]
-			title = inf[1]
-			time_put = inf[2]
-			province_name = inf[3]
 		except IndexError:
 			return
 		else:
-			html = D(url)
-			print('*************************************')
-			#print(html[:100])
-			
-			if scrape_callback:
-				scrape_callback(0, html, [title, time_put, province_name])
+			title = inf[1]
+			if '车' not in title:
+				if '挖掘机' not in title:
+					url = inf[0]
+					source_id = url.split('/')[-1].split('.')[0]
+					time_put = inf[2]
+					province_name = inf[3]
+					html = D(url)
+					print('*************************************')
+					#print(html[:100])				
+					if scrape_callback:
+						scrape_callback(source_id, html, [title, time_put, province_name])
+			else:
+				return
 
 
 	threads = []
@@ -432,12 +547,12 @@ def write_result(form_data, results, id):
 	information = json.dumps(js, sort_keys=True, ensure_ascii=False)
 	path = 'province/'+str(id)+'/'+form_data['time']+'.json'
 	#print(information)
-	print('jijiang threead_download')
+	#print('jijiang threead_download')
 	threaded_download(urlList=url_list, cache=DiskCache(), scrape_callback=extract)
 	with open(path, 'w', encoding='utf-8') as fp:
-		print('open successed')
+		#print('open successed')
 		json.dump(information, fp, ensure_ascii=False)
-		print('write successed')
+		#print('write successed')
 
 def downloader(form_data=None, id=0):
 	page = int(form_data['page'])
@@ -454,7 +569,7 @@ def downloader(form_data=None, id=0):
 				page = page + 1
 				form_data['page'] = str(page)
 			else:
-				print(str(id) + 'write_result')
+				#print(str(id) + 'write_result')
 				write_result(form_data, information, id)
 				break
 	form_data['time'] = add_one_day(form_data['time1'])
@@ -473,7 +588,7 @@ def threaded_crawler(max_threads=10):
 
 	def process_queue():
 		id = provinceId.pop()
-		print(id)
+		#print(id)
 		while True:
 			form_data = read_log(id)
 			if form_data['time'] == time.strftime('%Y-%m-%d', time.localtime()):
