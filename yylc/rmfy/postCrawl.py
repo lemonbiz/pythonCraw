@@ -21,6 +21,7 @@ import traceback
 import copy
 from pyquery import PyQuery as pq
 from lxml import etree
+import pymysql
 
 URL = 'http://www1.rmfysszc.gov.cn/News/handler.aspx'
 SLEEP_TIME = 1
@@ -137,6 +138,47 @@ class DiskCache(object):
 	def has_expired(self, timestamp):
 		return datetime.utcnow() > timestamp + self.expires
 
+def write_to_db(data):
+    print('in write_to_db')
+    print(data)
+    t = datetime.now()
+    t = str(t)
+    t = t.split('.')[0]
+    sql = "INSERT INTO fixed_asset_new (resource_id,resource_type,name,address,sell_type,land_type,is_bid,deal_status,source_url,province,city,district,declaration_time,start_price,min_raise_price,cash_deposit,trading_place,announce_num,subject_type,housing_area,land_area,evaluate_price,auction_stage,is_deleted,gmt_created,gmt_modified) VALUES (%d,%d,'%s','%s',%d,%d,%d,%d,'%s','%s','%s','%s','%s',%d,%d,%d,'%s',%d,%d,'%s','%s',%d,%d,%d,'%s','%s')" % (data['resource_id'],data['resource_type'],data['name'],data['address'],2,data['land_type'],0,data['deal_status'],data['source_url'],data['province'],data['city'],data['district'],data['declaration_time'],data['start_price'],data['min_raise_price'],data['cash_deposit'],data['trading_place'],data['announce_num'],data['subject_type'],data['housing_area'],data['land_area'],data['evaluate_price'],data['auction_stage'],data['is_deleted'],t,t)
+    print(sql)
+    conn = pymysql.connect(host='122.144.217.112',port=13306,user='pc_user4',
+    passwd='lldfd9937JJye',db='crawler',charset='utf8')
+    cursor = conn.cursor()
+    try:
+        cursor.execute(sql)
+        conn.commit()
+        print('successful')
+    except Exception as e:
+        print(e)
+        conn.rollback()
+    conn.close()
+
+
+
+
+def change_to_price(a):
+    b = ''
+    for i in a:
+        if i in ['0','1','2','3','4','5','6','7','8','9','万','元','.']:
+            b = b + i
+    if b == '万元' or b == '元' or len(b) > 20:
+        return '0'
+    return b
+
+
+def change_to_area(a):
+	b = '0'
+	for i in a:
+		if i in ['0','1','2','3','4','5','6','7','8','9','.']:
+			b = b + i
+	return b
+
+
 count = 0
 all_file = 0
 file_find_id = []
@@ -148,16 +190,28 @@ def extract(source_id,text,meta_data=[]):
     '''字段名 同 crawler.fixed_asset 表字段'''
     #传入数据
     if meta_data:
-        data['province'] = meta_data[2]
+    	title = meta_data[0]
+        #data['name'] = meta_data[2]
         #data['url'] = meta_data['url']
-        data['declaration_time'] = meta_data[1] #发布日期
+        #data['declaration_time'] = meta_data[1] #发布日期
 
     #title = d('#Title > h1').text()
-    title = meta_data[0]
-    if title:
-        data['name'] = title
-    print('***********************************')
-    print('source_id:%s' % source_id)
+    
+    #if title:
+        #data['name'] = title
+    auction_stage = 0
+    if '第一次拍卖' in title:
+    	auction_stage = 1
+    if '第二次拍卖' in title:
+    	auction_stage = 2
+    if '第三次拍卖' in title:
+    	auction_stage = 3
+    if '变卖' in title:
+    	auction_stage = 4
+
+
+    #print('***********************************')
+    #print('source_id:%s' % source_id)
     content = d('#Content').text()
     if content:
         global count
@@ -165,11 +219,8 @@ def extract(source_id,text,meta_data=[]):
         count = count + 1
     else:
         content = d('.xmxx_titlemaincontent').text()
-        title_content = d('table.xmxx_titlemain').text()
-        if title_content:
-        	content = content + title_content
-    content = content.replace(' ','').replace('：', '').replace('\n', '').replace('￥','')
-    print(content)
+    title_content = d('table.xmxx_titlemain').text()
+    content = content.replace(' ','').replace('：', '').replace('\n', '').replace('￥','').replace(' ','').replace(':','')
 
     #print('content:%s'% content)
     #评估价
@@ -179,65 +230,114 @@ def extract(source_id,text,meta_data=[]):
     '''
     price = re.compile(r'((?<=评估价)|(?<=保留价)|(?<=保留底价)|(?<=参考价)|(?<=参考))(.*?)(元|万元|万)', re.IGNORECASE)
     ep = price.findall(content)
-    evaluate_price = []
+    evaluate_price = 0
     if len(ep) != 0:
     	for i in ep:
-    		a = i[1]+i[2]
-    		a = a.replace('价','').replace('（','').replace('标的一','').replace('人民币','').replace('为','')
-    		if a != '万元' and a != '元' and a not in evaluate_price:
-    			evaluate_price.append(a)
-
-    print('评估价:', end=' ')
-    print(evaluate_price)
+            a = i[1]+i[2]
+            a = change_to_price(a)
+            if '万' in a:
+                a = int(float(a.replace('万','').replace('元',''))*10000*100)
+            else:
+                a = int(float(a.replace('万','').replace('元',''))*100)
+            evaluate_price = evaluate_price + a
+    if title_content:
+    	content = content + title_content
+    	if evaluate_price == 0:
+	    	price = re.compile(r'((?<=评估价)|(?<=保留价)|(?<=保留底价)|(?<=参考价)|(?<=参考))(.*?)(元|万元|万)', re.IGNORECASE)
+	    	ep = price.findall(content)
+	    	if len(ep) != 0:
+	    		for i in ep:
+	    			a = i[1]+i[2]
+	    			#a = a.replace('价','').replace('（','').replace('标的一','').replace('人民币','').replace('为','').replace('\'','').replace(':','').replace('：','')
+	    			a = change_to_price(a)
+	    			if '万' in a:
+	    				a = int(float(a.replace('万','').replace('元',''))*10000*100)
+	    			else:
+	    				a = int(float(a.replace('万','').replace('元',''))*100)
+	    			evaluate_price = evaluate_price + a
+    #print(content)
+    #print('评估价:', end=' ')
+    #print(evaluate_price)
     #evaluate_price= get_search(re.search(r'((?<=评估价)|(?<=保留价)|(?<=保留底价)|(?<=参考价))(.*?)(元|万元)',content))
     #print('评估价：%s' % evaluate_price)
 
     #起拍价
     start_price= get_search(re.search(r'(?<=起拍价)[\d,\.]+?(元|万元)',content))
-    print('起拍价:%s' % start_price)
+    if start_price and '万' in start_price:
+    	start_price = change_to_price(start_price)
+    	start_price = int(float(start_price.replace('万','').replace('元',''))*10000*100)
+    elif start_price:
+    	start_price = change_to_price(start_price)
+    	start_price = int(float(start_price.replace('元',''))*100)
+    #print('起拍价:%s' % start_price)
 
     #保证金
     cash_deposit= get_search(re.search(r'((?<=保证金)|(?<=保证金为))(.*?)(元|万元)',content))
     if cash_deposit != None and len(cash_deposit) > 20:
-    	cash_deposit = ash_deposit= get_search(re.search(r'(?<=保证金)(.*?)(元|万元)',cash_deposit))
-    if cash_deposit:
-    	cash_deposit = cash_deposit.replace('为','').replace('人民币','')
-    print('保证金:%s' % cash_deposit)
+    	cash_deposit = get_search(re.search(r'(?<=保证金)(.*?)(元|万元)',cash_deposit))
+    if cash_deposit and len(cash_deposit) > 10:
+    	cash_deposit = None
+    if cash_deposit and '万' in cash_deposit:
+    	cash_deposit = change_to_price(cash_deposit)
+    	cash_deposit = int(float(cash_deposit.replace('万','').replace('元',''))*10000*100)
+    elif cash_deposit:
+    	cash_deposit = change_to_price(cash_deposit)
+    	cash_deposit = int(float(cash_deposit.replace('元',''))*100)
+    #print('保证金:%s' % cash_deposit)
 
     #增价幅度
     min_raise_price = get_search(re.search(r'(?<=增(加|价)幅度)[\d,\.]+?(元|万元)',content))
-    print('增价幅度:%s' % min_raise_price)
+    if min_raise_price and '万' in min_raise_price:
+    	min_raise_price = change_to_price(min_raise_price)
+    	min_raise_price = int(float(min_raise_price.replace('万','').replace('元',''))*10000*100)
+    elif min_raise_price:
+    	min_raise_price = change_to_price(min_raise_price)
+    	min_raise_price = int(float(min_raise_price.replace('元',''))*100)
+    #print('增价幅度:%s' % min_raise_price)
 
     #建筑面积
     '''
     webpage_regex = re.compile(r'<a href="(.*?)"', re.IGNORECASE)
 	urls = webpage_regex.findall(html)
     '''
-    area =re.compile(r'((?<=建筑面积约)|(?<=建筑面积)|(?<=建面)|(?<=建筑面积为)|(?<=建筑面积是)|(?<=建筑面积共计))(.*?)(平方米|㎡|公顷|M2|m2)',re.IGNORECASE)
+    area =re.compile(r'((?<=建筑面积约)|(?<=建筑总面积)|(?<=建筑面积)|(?<=建面)|(?<=建筑面积为)|(?<=建筑面积是)|(?<=建筑面积共计))(.*?)(平方米|㎡|公顷|M2|m2)',re.IGNORECASE)
     ha = area.findall(content)
-    housing_area = []
+    housing_area = 0
     if len(ha) != 0:
     	for i in ha:
     		a = i[1]+i[2]
-    		a = a.replace('约','').replace('为','').replace('是','').replace('共计','')
-    		if a not in housing_area:
-    			housing_area.append(a)
+    		a = change_to_area(a)
+    		housing_area = housing_area + float(a)
+    housing_area = str(housing_area) + '平方米'
     #construction_area = get_search(re.search(r'((?<=面积约)|(?<=面积)|(?<=面积为)|(?<=面积是)|(?<=面积共计))[\d,\.]+?(平方米|㎡|公顷|M2)',content))
-    print('建筑面积:', end=' ')
-    print(housing_area)
+
     #土地面积
-    area =re.compile(r'((?<=土地面积约)|(?<=土地面积)|(?<=土地证载面积)|(?<=土地面积为)|(?<=土地面积是)|(?<=土地面积共计))(.*?)(平方米|㎡|公顷|M2|m2)',re.IGNORECASE)
+    area =re.compile(r'((?<=土地面积约)|(?<=土地面积)|(?<=土地分摊面积)|(?<=宗地面积)|(?<=土地使用权面积)|(?<=土地证载面积)|(?<=土地面积为)|(?<=土地面积是)|(?<=土地面积共计))(.*?)(平方米|㎡|公顷|M2|m2)',re.IGNORECASE)
     la = area.findall(content)
-    land_area = []
+    land_area = 0
     if len(la) != 0:
-    	for i in ca:
-    		a = i[1]+i[2]
-    		a = a.replace('约','').replace('为','').replace('是','').replace('共计','')
-    		if a not in land_area:
-    			land_area.append(a)
+    	for i in la:
+    		b = i[1]+i[2]
+    		b = change_to_area(b)
+    		land_area = str(land_area) + b
+    land_area = str(land_area) + '平方米'
     #construction_area = get_search(re.search(r'((?<=面积约)|(?<=面积)|(?<=面积为)|(?<=面积是)|(?<=面积共计))[\d,\.]+?(平方米|㎡|公顷|M2)',content))
-    print('土地面积:', end=' ')
-    print(land_area)
+    #print('土地面积:', end=' ')
+    #print(land_area)
+
+    #如果土地面积和建筑面积都为0，则查找面积
+    if land_area == '0平方米' and housing_area == '0平方米':
+        area =re.compile(r'((?<=面积约)|(?<=总面积)|(?<=面积)|(?<=建面)|(?<=面积为)|(?<=面积是)|(?<=面积共计))(.*?)(平方米|㎡|公顷|M2|m2)',re.IGNORECASE)
+        ha = area.findall(content)
+        housing_area = 0
+        if len(ha) != 0:
+            for i in ha:
+                a = i[1]+i[2]
+                a = change_to_area(a)
+                housing_area = housing_area + float(a)
+        housing_area = str(housing_area) + '平方米'
+    #print('建筑面积:', end=' ')
+    #print(housing_area)
 
 
     #拍卖地点
@@ -248,26 +348,28 @@ def extract(source_id,text,meta_data=[]):
     	trading_place = get_search(re.search(r'((?<=拍卖地点)|(?<=变卖电子竞价地点))(.*?)((。)|(;))', content))
     	if trading_place != None:
     		trading_place = trading_place[:-1]
-    print('交易地点:%s' % trading_place)
+    #print('交易地点:%s' % trading_place)
 
     #建筑性质
     if '营业' in content or '商业' in content or '商铺' in content or '门面房' in content:
-    	land_type = '商铺'
+    	land_type = 2
     elif '工业' in content or '厂房' in content or '库房' in content or '厂' in content:
-    	land_type = '厂房'
+    	land_type = 1
     elif '仓库' in content:
-    	land_type = '仓库'
+    	land_type = 5
     elif '商用' in content:
-    	land_type = '商业'
+    	land_type = 4
     elif '商品房' in content or '商服用房' in content:
-    	land_type = '商住房'
+    	land_type = 7
     elif '住宅' in content:
-    	land_type = '住宅'
+    	land_type = 3
     elif '别墅' in content:
-    	land_type = '别墅'
+    	land_type = 8
+    elif '办公' in content or '写字' in content:
+    	land_type = 6
     else:
-    	land_type = '未知'
-    print('建筑性质:%s' % land_type)
+    	land_type = 0
+    #print('建筑性质:%s' % land_type)
 
 
     #城市
@@ -281,7 +383,7 @@ def extract(source_id,text,meta_data=[]):
     		city = city[-3:]
     	city = city.replace('在', '')
     	city = city.replace('拍卖标的', '')
-    print('城市:%s' % city)
+    #print('城市:%s' % city)
 
     #区
     district = get_search(re.search(r'\w+?((区)|(县)|(镇))',content))
@@ -295,11 +397,11 @@ def extract(source_id,text,meta_data=[]):
 	    	district = district[-8:]
 	    district = district.replace('在', '')
 	    district = district.replace('拍卖标的', '')
-    print('地区:%s' % district)
+    #print('地区:%s' % district)
 
     #日期区间
     date = get_search(re.search(r'\d{2,4}[年\-]\d{1,2}[月\-](\d{1,2}[日\-])?(\d{1,2}[时：:])?\w{1,20}?\d{2,4}[年\-]\d{1,2}[月\-](\d{1,2}[日\-])?(\d{1,2}[时：:])?',content))
-    print('日期区间:%s' % date)
+    #print('日期区间:%s' % date)
 
     #address  从标题title里面提取地址
     address_search = get_search(re.search(r'(关于.+的公告)|(位于.+)',title))
@@ -310,21 +412,72 @@ def extract(source_id,text,meta_data=[]):
     	address = title.replace('司法拍卖','').replace('司法变卖','').replace('公告','') \
     	.replace('拍卖','') \
     	.replace('(第三次)','').replace('(第一次)','').replace('(第二次)','')
-    	if len(address) < 8:
-    		address = get_search(re.search(r'((?<=拍卖标的)|(?<=以下标的))[\d,\.]+?(室|号)',content))
-    		if address is None:
-    			address = get_search(re.search(r'((?<=拍卖标的)|(?<=以下标的))[\d,\.]+?(，|。)',content))
-    		else:
-    			address = get_search(re.search(r'((?<=对)|(?<=以下标的))[\d,\.]+?(进行)',content))
-    if address:
-    	address = address.replace('：','').replace('。','').replace('，','')
-    print('详细地址:%s' % address)
+
+    address_1 = get_search(re.search(r'((?<=拍卖标的)|(?<=以下标的))(.*?)((室)|(号)|(。)|(，))',content))
+    #print(address_1)
+    if address_1 and len(address_1) < 10:
+    	address_1 = None
+    if not address_1:
+    	address_1 = get_search(re.search(r'(?<=位于)(.*?)((，)|(。)|(进行))',content))
+    if not address_1:
+    	address_1 = get_search(re.search(r'(?<=对)(.*?)((，)|(。)|(进行))',content))
+    if address_1 and '（' in address_1:
+    	address_1 = address_1.split('（')[0]
+    if address_1 and '位于' in address_1:
+    	address_1 = address_1.split('位于')[1]
+    if address_1 and '进行' in address_1:
+    	address_1 = address_1.split('进行')[0]
+    if address_1:
+    	address_1 = address_1.replace('，','').replace('。','').replace('进行','').replace('"','').replace('“','').replace('”','').replace('公开','')
+    #print(address_1)
+    if address_1 != None and len(address_1) > len(address):
+        address_1 = address_1.replace('：','').replace('。','').replace('，','')
+        address = address_1
+        address = address.replace('进行','').replace('公开','')
+    #print('详细地址:%s' % address)
+
+    #data write
+    #for i in range(min(len(evaluate_price), len(housing_area))):
+    data['resource_id'] = int(source_id)
+    data['resource_type'] = 5
+    data['name'] = address
+    data['province'] = meta_data[2]
+    data['address'] = address
+    data['land_type'] = land_type
+    data['deal_status'] = 0
+    data['source_url'] = 'www.rmfysszc.gov.cn'
+    data['declaration_time'] = str(meta_data[1]) + ' 00:00:00'
+    if start_price == None:
+        start_price = 0
+    data['start_price'] = start_price
+    if min_raise_price == None:
+        min_raise_price = 0
+    data['min_raise_price'] = min_raise_price
+    if cash_deposit == None:
+        cash_deposit = 0
+    data['cash_deposit'] = cash_deposit
+    if trading_place == None:
+        trading_place = 0
+    data['trading_place'] = trading_place
+    data['announce_num'] = int(source_id)
+    data['subject_type'] = 1
+    data['housing_area'] = housing_area
+    data['land_area'] = land_area
+    if evaluate_price == None:
+        evaluate_price = 0
+    data['evaluate_price'] = evaluate_price
+    data['auction_stage'] = auction_stage
+    data['is_deleted'] = 0
+    data['city'] = city
+    data['district'] = district
+    print('***********************************')
     print(data)
+    write_to_db(data)
 
     #日期
-    date1 = get_search(re.search(r'\d{2,4}[年\-]\d{1,2}[月\-](\d{1,2}[日\-])?(\d{1,2}[时：:])?',content))
-    print('日期:%s' % date1)
-    print('***********************************')
+    #date1 = get_search(re.search(r'\d{2,4}[年\-]\d{1,2}[月\-](\d{1,2}[日\-])?(\d{1,2}[时：:])?',content))
+    #print('日期:%s' % date1)
+    
     print('***********************************')
 
 def get_search(search):
@@ -464,23 +617,17 @@ def read_log(id):
 	return form_data
 
 def get_response(data=formData):
-	'post requests to the server with form data and headers, return response, str'
-	try:
-		#print(data)
-		#print('111')
-		response = requests.post(URL, data=data, headers=requestHeaders, timeout=30)
-		response.raise_for_status()
-		#print('222')
-		response.encoding = response.apparent_encoding
-		#print(response.encoding)
-		content = response.text
-		#print(type(content))
-		#print(len(content))
-		#print(content)
-		#print('response success')
-		return content
-	except:
-		return ERROR_RESPONSE
+    'post requests to the server with form data and headers, return response, str'
+    try:
+        response = requests.post(URL, data=data, headers=requestHeaders, timeout=30)
+        response.raise_for_status()
+        response.encoding = response.apparent_encoding
+        content = response.text
+        if len(content) < 500:
+            return ERROR_DOWNLOAD
+        return content
+    except:
+        return ERROR_RESPONSE
 
 def threaded_download(urlList=None, delay=5, cache=None, scrape_callback=None, user_agent='wswp', proxies=None, num_retries=1, max_threads=10, timeout=60):
 	url_list = urlList
@@ -501,7 +648,7 @@ def threaded_download(urlList=None, delay=5, cache=None, scrape_callback=None, u
 					time_put = inf[2]
 					province_name = inf[3]
 					html = D(url)
-					print('*************************************')
+					#print('*************************************')
 					#print(html[:100])				
 					if scrape_callback:
 						scrape_callback(source_id, html, [title, time_put, province_name])
@@ -555,59 +702,61 @@ def write_result(form_data, results, id):
 		#print('write successed')
 
 def downloader(form_data=None, id=0):
-	page = int(form_data['page'])
-	information = []
-	while True:
-		content = get_response(form_data)
-		time.sleep(random.uniform(0,3))
-		if content != ERROR_RESPONSE:
-			results = resolution(content, id)
-			if results != []:
-				for result in results:
-					information.append(result)
-				#print(information)
-				page = page + 1
-				form_data['page'] = str(page)
-			else:
-				#print(str(id) + 'write_result')
-				write_result(form_data, information, id)
-				break
-	form_data['time'] = add_one_day(form_data['time1'])
-	time_add_three_months = add_three_months(form_data['time'])
-	if time_add_three_months > time.strftime('%Y-%m-%d', time.localtime()):
-		form_data['time1'] = form_data['time']
-	else:
-		form_data['time1'] = time_add_three_months
-	form_data['page'] = str(1)
-	write_log(form_data, id)
+    page = int(form_data['page'])
+    information = []
+    while True:
+        content = get_response(form_data)
+        #time.sleep(random.uniform(0,3))
+        if content != ERROR_RESPONSE:
+            results = resolution(content, id)
+            if results != [] and page < 300:
+                for result in results:
+                    information.append(result)
+                #print(information)
+                page = page + 1
+                print(page)
+                form_data['page'] = str(page)
+            else:                
+                break
+    write_result(form_data, information, id)
+    form_data['time'] = add_one_day(form_data['time1'])
+    time_add_three_months = add_three_months(form_data['time'])
+    if time_add_three_months > time.strftime('%Y-%m-%d', time.localtime()):
+        form_data['time1'] = form_data['time']
+    else:
+        form_data['time1'] = time_add_three_months
+    form_data['page'] = str(1)
+    write_log(form_data, id)
 
 def threaded_crawler(max_threads=10):
-	provinceId = [90, 91, 92, 93, 2589, 95, 3584, 97, 98, 99, 100, 101, 102,
-			 	  103, 104, 105, 106, 107, 108, 9863, 110, 111, 112, 113, 
-			 	  114, 12449, 116, 117, 118, 14003, 13921, 14625]	
+    provinceId = [90, 91, 92, 93, 2589, 95, 3584, 97, 98, 99, 100, 101, 102,
+                  103, 104, 105, 106, 107, 108, 9863, 110, 111, 112, 113, 
+                  114, 12449, 116, 117, 118, 14003, 13921, 14625]
 
-	def process_queue():
-		id = provinceId.pop()
-		#print(id)
-		while True:
-			form_data = read_log(id)
-			if form_data['time'] == time.strftime('%Y-%m-%d', time.localtime()):
-				break
-			else:
-				downloader(form_data, id)
+    def process_queue():
+        id = provinceId.pop()
+        print(id)
+        while True:
+            form_data = read_log(id)
+            if form_data['time'] == time.strftime('%Y-%m-%d', time.localtime()):
+                print(str(id) + ' had crawled')
+                break
+            else:
+                print(str(id) + 'is crawling')
+                downloader(form_data, id)
 
 
-	threads = []
-	while provinceId or threads:
-		for thread in threads:
-			if not thread.is_alive():
-				threads.remove(thread)
-		while len(threads) < max_threads and provinceId:
-			thread = threading.Thread(target=process_queue)
-			thread.setDaemon(True)
-			thread.start()
-			threads.append(thread)
-		time.sleep(SLEEP_TIME)
+    threads = []
+    while provinceId or threads:
+        for thread in threads:
+            if not thread.is_alive():
+                threads.remove(thread)
+        while len(threads) < max_threads and provinceId:
+            thread = threading.Thread(target=process_queue)
+            thread.setDaemon(True)
+            thread.start()
+            threads.append(thread)
+        time.sleep(SLEEP_TIME)
 
 def main():
 	now_time = time.strftime('%Y-%m-%d', time.localtime())
@@ -626,5 +775,8 @@ def main():
 
 
 if __name__ == '__main__':
-	main()
-	time.sleep(60*60*24)
+    path = "province"
+    if not os.path.exists(path):
+        os.mkdir(path)
+    main()
+	#time.sleep(60*60*24)
