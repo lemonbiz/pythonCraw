@@ -399,13 +399,13 @@ def extract(source_id,text,meta_data=[]):
 	    	district = district[-8:]
 	    district = district.replace('在', '')
 	    district = district.replace('拍卖标的', '')
-    if '市' in district:
+    if district and '市' in district:
         district = district.split('市')[1]
-    if '时' in district:
+    if district and '时' in district:
         district = district.split('时')[1]
-    if '点' in district:
+    if district and '点' in district:
         district = district.split('点')[1]
-    if '对' in district:
+    if district and '对' in district:
         district = district.split('对')[1]
     #print('地区:%s' % district)
 
