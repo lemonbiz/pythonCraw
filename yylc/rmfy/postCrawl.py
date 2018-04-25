@@ -147,7 +147,7 @@ def write_to_db(data):
     sql = "INSERT INTO fixed_asset_new (resource_id,resource_type,name,address,sell_type,land_type,is_bid,deal_status,source_url,province,city,district,declaration_time,start_price,min_raise_price,cash_deposit,trading_place,announce_num,subject_type,housing_area,land_area,evaluate_price,auction_stage,is_deleted,gmt_created,gmt_modified) VALUES (%d,%d,'%s','%s',%d,%d,%d,%d,'%s','%s','%s','%s','%s',%d,%d,%d,'%s',%d,%d,'%s','%s',%d,%d,%d,'%s','%s')" % (data['resource_id'],data['resource_type'],data['name'],data['address'],2,data['land_type'],0,data['deal_status'],data['source_url'],data['province'],data['city'],data['district'],data['declaration_time'],data['start_price'],data['min_raise_price'],data['cash_deposit'],data['trading_place'],data['announce_num'],data['subject_type'],data['housing_area'],data['land_area'],data['evaluate_price'],data['auction_stage'],data['is_deleted'],t,t)
     print(sql)
     conn = pymysql.connect(host='122.144.217.112',port=13306,user='pc_user4',
-    passwd='lldfd9937JJye',db='crawler',charset='utf8')
+                           passwd='lldfd9937JJye',db='crawler',charset='utf8')
     cursor = conn.cursor()
     try:
         cursor.execute(sql)
@@ -383,6 +383,14 @@ def extract(source_id,text,meta_data=[]):
     		city = city[-3:]
     	city = city.replace('在', '')
     	city = city.replace('拍卖标的', '')
+    if '市' in city:
+        city = city.split('市')[1]
+    if '时' in city:
+        city = city.split('时')[1]
+    if '点' in city:
+        city = city.split('点')[1]
+    if '对' in city:
+        city = city.split('对')[1]
     #print('城市:%s' % city)
 
     #区
@@ -456,8 +464,6 @@ def extract(source_id,text,meta_data=[]):
     if cash_deposit == None:
         cash_deposit = 0
     data['cash_deposit'] = cash_deposit
-    if trading_place == None:
-        trading_place = 0
     data['trading_place'] = trading_place
     data['announce_num'] = int(source_id)
     data['subject_type'] = 1
