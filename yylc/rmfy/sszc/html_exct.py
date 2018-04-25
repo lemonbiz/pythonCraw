@@ -33,12 +33,27 @@ def write_to_db(data):
 
 def change_to_price(a):
     b = ''
+    c = 0
     for i in a:
         if i in ['0','1','2','3','4','5','6','7','8','9','万','元','.']:
             b = b + i
     if (b == '万元' or b == '元' or len(b) > 20) and b.count('.') > 1:
-        return '0'
-    return b
+        return 0
+    if '万' in b:
+        try:
+            c = int(float(b.replace('万','').replace('元',''))*10000*100)
+        except:
+            pass
+        else:
+            return 0
+    else:
+        try:
+            c = int(float(b.replace('万','').replace('元',''))*100)
+        except:
+            pass
+        else:
+            return 0
+    return c
 
 
 def change_to_area(a):
@@ -87,7 +102,7 @@ def extract(source_id,text,meta_data=[]):
     else:
         content = d('.xmxx_titlemaincontent').text()
     title_content = d('table.xmxx_titlemain').text()
-    content = content.replace(' ','').replace('：', '').replace('\n', '').replace('￥','').replace(' ','').replace(':','')
+    content = content.replace(' ','').replace('：', '').replace('\n', '').replace('￥','').replace(' ','').replace(':','')
 
     #print('content:%s'% content)
     #评估价
@@ -102,10 +117,6 @@ def extract(source_id,text,meta_data=[]):
     	for i in ep:
             a = i[1]+i[2]
             a = change_to_price(a)
-            if '万' in a:
-                a = int(float(a.replace('万','').replace('元',''))*10000*100)
-            else:
-                a = int(float(a.replace('万','').replace('元',''))*100)
             evaluate_price = evaluate_price + a
     if title_content:
     	content = content + title_content
@@ -117,10 +128,6 @@ def extract(source_id,text,meta_data=[]):
 	    			a = i[1]+i[2]
 	    			#a = a.replace('价','').replace('（','').replace('标的一','').replace('人民币','').replace('为','').replace('\'','').replace(':','').replace('：','')
 	    			a = change_to_price(a)
-	    			if '万' in a:
-	    				a = int(float(a.replace('万','').replace('元',''))*10000*100)
-	    			else:
-	    				a = int(float(a.replace('万','').replace('元',''))*100)
 	    			evaluate_price = evaluate_price + a
     #print(content)
     #print('评估价:', end=' ')
@@ -130,12 +137,8 @@ def extract(source_id,text,meta_data=[]):
 
     #起拍价
     start_price= get_search(re.search(r'(?<=起拍价)[\d,\.]+?(元|万元)',content))
-    if start_price and '万' in start_price:
-    	start_price = change_to_price(start_price)
-    	start_price = int(float(start_price.replace('万','').replace('元',''))*10000*100)
-    elif start_price:
-    	start_price = change_to_price(start_price)
-    	start_price = int(float(start_price.replace('元',''))*100)
+    start_price = change_to_price(start_price)
+
     #print('起拍价:%s' % start_price)
 
     #保证金
@@ -144,22 +147,12 @@ def extract(source_id,text,meta_data=[]):
     	cash_deposit = get_search(re.search(r'(?<=保证金)(.*?)(元|万元)',cash_deposit))
     if cash_deposit and len(cash_deposit) > 10:
     	cash_deposit = None
-    if cash_deposit and '万' in cash_deposit:
-    	cash_deposit = change_to_price(cash_deposit)
-    	cash_deposit = int(float(cash_deposit.replace('万','').replace('元',''))*10000*100)
-    elif cash_deposit:
-    	cash_deposit = change_to_price(cash_deposit)
-    	cash_deposit = int(float(cash_deposit.replace('元',''))*100)
+    cash_deposit = change_to_price(cash_deposit)
     #print('保证金:%s' % cash_deposit)
 
     #增价幅度
     min_raise_price = get_search(re.search(r'(?<=增(加|价)幅度)[\d,\.]+?(元|万元)',content))
-    if min_raise_price and '万' in min_raise_price:
-    	min_raise_price = change_to_price(min_raise_price)
-    	min_raise_price = int(float(min_raise_price.replace('万','').replace('元',''))*10000*100)
-    elif min_raise_price:
-    	min_raise_price = change_to_price(min_raise_price)
-    	min_raise_price = int(float(min_raise_price.replace('元',''))*100)
+    min_raise_price = change_to_price(min_raise_price)
     #print('增价幅度:%s' % min_raise_price)
 
     #建筑面积
@@ -265,14 +258,14 @@ def extract(source_id,text,meta_data=[]):
 	    	district = district[-8:]
 	    district = district.replace('在', '')
 	    district = district.replace('拍卖标的', '')
-	    if '市' in city:
-	        city = city.split('市')[1]
-	    if '时' in city:
-	        city = city.split('时')[1]
-	    if '点' in city:
-	        city = city.split('点')[1]
-	    if '对' in city:
-	        city = city.split('对')[1]
+    if district and '市' in district:
+        district = district.split('市')[1]
+    if district and '时' in district:
+        district = district.split('时')[1]
+    if district and '点' in district:
+        district = district.split('点')[1]
+    if district and '对' in district:
+        district = district.split('对')[1]
 
     #print('地区:%s' % district)
 
