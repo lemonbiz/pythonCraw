@@ -8,6 +8,7 @@ from lxml import etree
 from pyquery import PyQuery as pq
 import pymysql
 import re
+import time
 
 
 def write_to_db(data):
@@ -24,7 +25,8 @@ def write_to_db(data):
     try:
         cursor.execute(sql)
         conn.commit()
-        #print('successful')
+        a = time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())
+        print(a + ' successful')
     except Exception as e:
         print(e)
         conn.rollback()
@@ -32,6 +34,8 @@ def write_to_db(data):
 
 
 def change_to_price(a):
+    if not a:
+        return 0
     b = ''
     c = 0
     for i in a:
