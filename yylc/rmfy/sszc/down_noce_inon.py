@@ -32,8 +32,9 @@ def threaded_download(urlList=None, delay=5, cache=None, scrape_callback=None, u
 					province_name = inf[3]
 					html = D(url)
 					#print('*************************************')
-					#print(html[:100])				
+					#print(html[400:600])				
 					if scrape_callback:
+						print('in scrap_callback')
 						scrape_callback(source_id, html, [title, time_put, province_name])
 			else:
 				return

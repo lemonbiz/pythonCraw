@@ -94,8 +94,7 @@ class Downloader:
 			except KeyError:
 				pass
 			else:
-				#if self.num_retries > 0 and 500 <= result['code'] < 600:
-				result = None
+				pass
 		if result is None:
 			self.throttle.wait(url)
 			proxy = random.choice(self.proxies) if self.proxies else None

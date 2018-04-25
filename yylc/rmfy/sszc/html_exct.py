@@ -47,16 +47,16 @@ def change_to_price(a):
         try:
             c = int(float(b.replace('万','').replace('元',''))*10000*100)
         except:
-            pass
-        else:
             return 0
+        else:
+            pass
     else:
         try:
             c = int(float(b.replace('万','').replace('元',''))*100)
         except:
-            pass
-        else:
             return 0
+        else:
+            pass
     return c
 
 
@@ -70,9 +70,16 @@ def change_to_area(a):
 	return b
 
 def extract(source_id,text,meta_data=[]):
-    html = etree.HTML(text)
-    d = pq(html)
+    #print('in extrace')
+    try:
+        html = etree.HTML(text)
+        d = pq(html)
+    except:
+        return
+    else:
+        pass
     data = {}
+    #print('in ')
     '''字段名 同 crawler.fixed_asset 表字段'''
     #传入数据
     if meta_data:
