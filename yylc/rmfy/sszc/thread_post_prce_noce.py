@@ -17,15 +17,15 @@ SLEEP_TIME = 1
 def threaded_crawler(max_threads=10):
     provinceId = [90, 91, 92, 93, 2589, 95, 3584, 97, 98, 99, 100, 101, 102,
                   103, 104, 105, 106, 107, 108, 9863, 110, 111, 112, 113, 
-                  114, 12449, 116, 117, 118, 14003, 13921, 14625]
-
+                  114, 12449, 116, 117, 118, 14033, 13921, 14625]
+    #provinceId = [14625]
     def process_queue():
         id = provinceId.pop()
         print(id)
         while True:
             form_data = read_log(id)
             if form_data['time'] == time.strftime('%Y-%m-%d', time.localtime()):
-                #print(str(id) + ' had crawled')
+                print(str(id) + ' had crawled')
                 break
             else:
                 #print(str(id) + 'is crawling')
@@ -37,7 +37,7 @@ def threaded_crawler(max_threads=10):
         for thread in threads:
             if not thread.is_alive():
                 threads.remove(thread)
-        while len(threads) < max_threads and provinceId:
+        while len(threads) < 2 and provinceId:
             thread = threading.Thread(target=process_queue)
             thread.setDaemon(True)
             thread.start()

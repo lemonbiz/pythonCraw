@@ -10,6 +10,8 @@ import re
 
 ERROR_RESPONSE = 0
 URL = 'http://www1.rmfysszc.gov.cn/News/handler.aspx'
+BAIDU_API_URL = 'http://api.map.baidu.com/geocoder/v2/?address=%s&output=json&ak=%s&callback=showLocation'
+ak = 'wPh1zq1a818gaVKpOsGQEhrCBevNuVyy'
 
 formData = {
 	'search': '',
@@ -55,3 +57,22 @@ def resolution(content, id=0):
 	notice_regex = re.compile(r'<a href=\'(.*?)\' title=\'(.*?)\' target=\'_blank\'>.*?class=\'n_c_l\' title=\'(.*?)\'.*?color: #313131;\'>(.*?)</span>', re.IGNORECASE)
 	notice = notice_regex.findall(content)
 	return notice
+
+def get_location(address):
+	''' give a address return location lng and lat'''
+	url = BAIDU_API_URL % (address, ak)
+	#print(url)
+	try:
+		response = requests.get(url, timeout=30)
+		location = response.text.split('"location":')[1].split(',"precise"')[0]
+		#print(location)
+		lng = location.split('"lng":')[1].split(',"lat":')[0]
+		lat = location.split('"lat":')[1].split('}')[0]
+		location = lng + ',' + lat
+		return location
+	except Exception as e:
+		print(e)
+		return None
+if __name__ == "__main__":
+	a = get_location('长兴县雉城镇新城丽景22幢2-102室房屋、望春小区5幢第4、5号营业房产')
+	print(a)

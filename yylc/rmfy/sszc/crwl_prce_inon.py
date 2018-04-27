@@ -25,8 +25,8 @@ def add_one_day(data):
 	return str(newTime).split(' ')[0]
 
 
-def add_three_months(data):
-	'get a data as \'2018-08-08\' return a data add three months than it'
+def add_any_num_months(data,num=1):
+	'get a data as \'2018-08-08\' return a data add any months than it'
 	oldTime = datetime.strptime(data,'%Y-%m-%d')
 	if int(oldTime.day) != 1:
 		oldTime = oldTime + timedelta(days=30)
@@ -35,7 +35,7 @@ def add_three_months(data):
 		oldTime = str(year) + '-' + str(month) + '-' + str(1)
 		oldTime = datetime.strptime(oldTime,'%Y-%m-%d')
 	#print oldTime
-	for i in range(3):
+	for i in range(int(num)):
 		_,all_2 = calendar.monthrange(int(oldTime.year), int(oldTime.month))
 		#print oldTime.year, oldTime.month
 		#print all_2
@@ -52,6 +52,7 @@ def downloader(form_data=None, id=0):
     information = []
     while True:
         content = get_response(form_data)
+        #print(content)
         #time.sleep(random.uniform(0,3))
         if content != ERROR_RESPONSE:
             results = resolution(content, id)
@@ -64,12 +65,15 @@ def downloader(form_data=None, id=0):
                 form_data['page'] = str(page)
             else:                
                 break
+        else:
+        	break
+    print('writing ')
     write_result(form_data, information, id)
     form_data['time'] = add_one_day(form_data['time1'])
-    time_add_three_months = add_three_months(form_data['time'])
-    if time_add_three_months > time.strftime('%Y-%m-%d', time.localtime()):
+    time_add_one_month = add_any_num_months(form_data['time'])
+    if time_add_one_month > time.strftime('%Y-%m-%d', time.localtime()):
         form_data['time1'] = form_data['time']
     else:
-        form_data['time1'] = time_add_three_months
+        form_data['time1'] = time_add_one_month
     form_data['page'] = str(1)
     write_log(form_data, id)

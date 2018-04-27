@@ -43,8 +43,8 @@ def read_log(id):
 		with open(path, 'w', encoding='utf-8') as wfp:
 			form_data = copy.deepcopy(formData)
 			form_data['fid1'] = str(id)
-			form_data['time'] = '2013-01-01'
-			form_data['time1'] = '2013-03-31'
+			form_data['time'] = '2017-10-01'
+			form_data['time1'] = '2017-10-31'
 			form_data['page'] = '1'
 			log = json.dumps(form_data, sort_keys=True, ensure_ascii=False, indent=4, separators=(',', ': '))
 			json.dump(log, wfp)

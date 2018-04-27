@@ -10,6 +10,8 @@ import pymysql
 import re
 import time
 
+from rese_get_reou import get_location
+
 
 def write_to_db(data):
     #print('in write_to_db')
@@ -17,7 +19,7 @@ def write_to_db(data):
     t = datetime.now()
     t = str(t)
     t = t.split('.')[0]
-    sql = "INSERT INTO fixed_asset_new (resource_id,resource_type,name,address,sell_type,land_type,is_bid,deal_status,source_url,province,city,district,declaration_time,start_price,min_raise_price,cash_deposit,trading_place,announce_num,subject_type,housing_area,land_area,evaluate_price,auction_stage,is_deleted,gmt_created,gmt_modified) VALUES (%d,%d,'%s','%s',%d,%d,%d,%d,'%s','%s','%s','%s','%s',%d,%d,%d,'%s',%d,%d,'%s','%s',%d,%d,%d,'%s','%s')" % (data['resource_id'],data['resource_type'],data['name'],data['address'],2,data['land_type'],0,data['deal_status'],data['source_url'],data['province'],data['city'],data['district'],data['declaration_time'],data['start_price'],data['min_raise_price'],data['cash_deposit'],data['trading_place'],data['announce_num'],data['subject_type'],data['housing_area'],data['land_area'],data['evaluate_price'],data['auction_stage'],data['is_deleted'],t,t)
+    sql = "INSERT INTO fixed_asset_new (resource_id,resource_type,name,address,sell_type,land_type,is_bid,deal_status,source_url,province,city,district,declaration_time,start_price,min_raise_price,cash_deposit,trading_place,announce_num,subject_type,housing_area,land_area,evaluate_price,auction_stage,is_deleted,gmt_created,gmt_modified,location) VALUES (%d,%d,'%s','%s',%d,%d,%d,%d,'%s','%s','%s','%s','%s',%d,%d,%d,'%s',%d,%d,'%s','%s',%d,%d,%d,'%s','%s','%s')" % (data['resource_id'],data['resource_type'],data['name'],data['address'],2,data['land_type'],0,data['deal_status'],data['source_url'],data['province'],data['city'],data['district'],data['declaration_time'],data['start_price'],data['min_raise_price'],data['cash_deposit'],data['trading_place'],data['announce_num'],data['subject_type'],data['housing_area'],data['land_area'],data['evaluate_price'],data['auction_stage'],data['is_deleted'],t,t,data['location'])
     #print(sql)
     conn = pymysql.connect(host='122.144.217.112',port=13306,user='pc_user4',
                            passwd='lldfd9937JJye',db='crawler',charset='utf8')
@@ -69,6 +71,14 @@ def change_to_area(a):
 		return '0'
 	return b
 
+
+def change_to_address(address):
+    address = address.replace('（','').replace('）','') \
+                .replace('于','').replace('坐落','').replace('位于','')
+    if '面积' in address:
+        address = address.split('面积')[0]
+    return address
+
 def extract(source_id,text,meta_data=[]):
     #print('in extrace')
     try:
@@ -107,9 +117,7 @@ def extract(source_id,text,meta_data=[]):
     #print('source_id:%s' % source_id)
     content = d('#Content').text()
     if content:
-        global count
-        file_find_id.append(source_id)
-        count = count + 1
+        pass
     else:
         content = d('.xmxx_titlemaincontent').text()
     title_content = d('table.xmxx_titlemain').text()
@@ -321,9 +329,10 @@ def extract(source_id,text,meta_data=[]):
     #for i in range(min(len(evaluate_price), len(housing_area))):
     data['resource_id'] = int(source_id)
     data['resource_type'] = 5
-    data['name'] = address
+    data['name'] = change_to_address(address)
     data['province'] = meta_data[2]
-    data['address'] = address
+    data['address'] = data['name']
+    data['location'] = get_location(data['name'])
     data['land_type'] = land_type
     data['deal_status'] = 0
     data['source_url'] = 'http://www.rmfysszc.gov.cn/statichtml/rm_xmdetail/'+source_id+'.shtml'
@@ -350,7 +359,7 @@ def extract(source_id,text,meta_data=[]):
     data['city'] = city
     data['district'] = district
     #print('***********************************')
-    #print(data)
+    print(data)
     write_to_db(data)
 
     #日期
