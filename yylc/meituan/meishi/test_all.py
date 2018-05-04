@@ -19,7 +19,36 @@ DEFAULT_RETRIES = 1
 DEFAULT_TIMEOUT = 60
 SLEEP_TIME = 1
 
+request_headers = {
+	'Accept': 'application/json',
+	'Accept-Encoding': 'gzip, deflate',
+	'Accept-Language': 'zh-CN,zh;q=0.9',
+	'Connection': 'keep-alive',
+	'Host': 'hz.meituan.com',
+	'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36'
+}
 
+# query_string_parameters = {
+# 	'uuid': 'a75a2fec-d4b6-4e36-a2df-1a52b3ee2d2d',
+# 	'platform': '1',
+# 	'partner': '126',
+# 	'originUrl': 'http://hz.meituan.com/meishi/c54/pn2/',
+# 	'riskLevel': '1',
+# 	'optimusCode': '1',
+# 	'cityName': '杭州',
+# 	'cateId': '54',
+# 	'areaId': '0',
+# 	'sort': '',
+# 	'dinnerCountAttrId': '',
+# 	'page': '2',
+# 	'userId': '0'
+# }
+URL = 'http://hz.meituan.com/meishi/api/poi/getPoiList?uuid=a75a2fec-d4b6-4e36-a2df-1a52b3ee2d2d&platform=1&partner=126&originUrl=http%3A%2F%2Fhz.meituan.com%2Fmeishi%2Fc54%2Fpn2%2F&riskLevel=1&optimusCode=1&cityName=%E6%9D%AD%E5%B7%9E&cateId=55&areaId=0&sort=&dinnerCountAttrId=&page=2&userId=0'
+# response = requests.get(URL, headers=request_headers)
+# # response.raise_for_status()
+# # response.encoding = response.apparent_encoding
+# content = response.text
+# print(content)
 # 代理服务器
 def prequest(url= "http://ip.chinaz.com/getip.aspx", headers=None, cookies=None, use_proxies=True):
 
@@ -120,7 +149,7 @@ class Throttle:
 
 
 class Downloader:
-	def __init__(self, delay=DEFAULT_DELAY, user_agent=DEFAULT_AGENT, proxies=None, num_retries=DEFAULT_RETRIES, timeout=DEFAULT_TIMEOUT, opener=None, cache=DiskCache()):
+	def __init__(self, delay=DEFAULT_DELAY, headers=None, user_agent=DEFAULT_AGENT, proxies=None, num_retries=DEFAULT_RETRIES, timeout=DEFAULT_TIMEOUT, opener=None, cache=DiskCache()):
 		socket.setdefaulttimeout(timeout)
 		self.throttle = Throttle(delay)
 		self.user_agent = user_agent
@@ -128,6 +157,7 @@ class Downloader:
 		self.num_retries = num_retries
 		self.opener = opener
 		self.cache = cache
+		self.headers = headers
 
 
 	def __call__(self, url):
@@ -142,8 +172,7 @@ class Downloader:
 		if result is None:
 			self.throttle.wait(url)
 			proxy = random.choice(self.proxies) if self.proxies else None
-			headers = {'User-agent': self.user_agent}
-			result = self.download(url, headers, proxy, self.num_retries)
+			result = self.download(url, self.headers, proxy, self.num_retries)
 			if self.cache:
 				self.cache[url] = result
 		return result
@@ -151,7 +180,7 @@ class Downloader:
 	def download(self, url, headers, proxy, num_retrie, data = None):
 		print ('Download:', url)
 		try:
-			html = prequest(url).text
+			html = prequest(url=url, headers=self.headers).text
 		except Exception as e:
 			print ('Download error', str(e))
 			html = ''
@@ -166,8 +195,8 @@ def main():
 	# print(a.text)
 	# while True:
 	# 	print(prequest())
-	d = Downloader()
-	html = d('http://hz.meituan.com/meishi/')
+	d = Downloader(headers=request_headers)
+	html = d(URL)
 	print(html)
 
 
