@@ -1,3 +1,4 @@
+#-*- coding:utf-8 -*-
 #created by yangyinglong at 20180503 
 '''
 下载模块，使用代理IP下载，并将下载过的页面保存在本地文件中，避免重复下载
@@ -64,11 +65,15 @@ def prequest(url= "http://ip.chinaz.com/getip.aspx", headers=request_headers, co
     	resp = requests.get(url, headers=headers, cookies=cookies, proxies=proxy_handler)
     	resp.raise_for_status()
     	resp.encoding = resp.apparent_encoding
+    	if resp.encoding == 'Windows-1254':
+    		resp.encoding = 'utf-8'
     else:
     	resp = requests.get(url, headers=headers, cookies=cookies)
     	resp.raise_for_status()
     	resp.encoding = resp.apparent_encoding
-    return resp    
+    	if resp.encoding == 'Windows-1254':
+    		resp.encoding = 'utf-8'
+    return resp 
 
 
 
@@ -232,6 +237,7 @@ class Database():
 	def select_from(self,sql=None):
 		'''select from table return a list'''
 		try:
+			self.user_list = []
 			# cursor = self.conn.cursor()
 			self.cursor.execute(sql)
 			rows = self.cursor.fetchall()

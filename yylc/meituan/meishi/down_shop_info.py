@@ -9,6 +9,7 @@ from multiprocessing import Pool
 import json
 import pymysql
 import re
+import random
 import threading
 import time
 
@@ -45,6 +46,21 @@ class_code = {
 	'24': '其他美食'
 }
 
+home_request_headers_accept = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8'
+
+request_headers_accept = 'application/json'
+
+home_request_headers = {
+	'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+	'Accept-Encoding': 'gzip, deflate',
+	'Accept-Language': 'zh-CN,zh;q=0.9',
+	'Connection': 'keep-alive',
+	'Host': 'hz.meituan.com',
+	'Referer': 'http://hz.meituan.com/meishi/c35/pn2/',
+	'Upgrade-Insecure-Requests': '1',
+	'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36'
+}
+
 request_headers = {
 	'Accept': 'application/json',
 	'Accept-Encoding': 'gzip, deflate',
@@ -53,7 +69,16 @@ request_headers = {
 	'Host': 'hz.meituan.com',
 	'Referer': 'http://hz.meituan.com/meishi/c11/pn2/',
 	'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36'
+	# 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:59.0) Gecko/20100101 Firefox/59.0'
+	# 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1667.0 Safari/537.36'
+	# 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36'
 }
+
+User_Agent = [
+	'Mozilla/5.0(Macintosh;U;IntelMacOSX10_6_8;en-us)AppleWebKit/534.50(KHTML,likeGecko)Version/5.1Safari/534.50',
+	'',
+	'',
+]
 
 
 def read_shop_class_from_db():
@@ -70,7 +95,10 @@ def extrace(html,type_code):
 	# shops_list = classes_data.split(']}')
 	# for shop_info in shops_list:
 	# 	print(shops_list)
-	shop_lists = json.loads(html)['data']['poiInfos']
+	try:
+		shop_lists = json.loads(html)['data']['poiInfos']
+	except:
+		return None
 	shop_info_list = []
 	for shop_info in shop_lists:
 		data = {}
@@ -94,6 +122,7 @@ def down_shop_name(one_class=None):
 
 	def get_uuid(url):
 		text_uuid = down(url)
+		# print(text_uuid)
 		re_uuid = re.compile(r'"uuid":"(.*?)",', re.IGNORECASE)
 		try:
 			uuid = re_uuid.findall(text_uuid)[0]
@@ -110,22 +139,24 @@ def down_shop_name(one_class=None):
 		# print('*****one class*****')
 		type_code = one_class['DIRECTORY_CODE']
 		url_uuid = 'http://hz.meituan.com/meishi/%s/pn%d/' % (type_code, page)
+		print(url_uuid)
 		down.headers['Referer'] = url_uuid
+		down.headers['Accept'] = home_request_headers_accept
 		uuid = get_uuid(url_uuid)
 		if not uuid:
 			break
 		type_code = type_code.replace('c','')
-		url = r'http://hz.meituan.com/meishi/api/poi/getPoiList?uuid='+uuid+r'&platform=1&partner=126&originUrl=http%3A%2F%2Fhz.meituan.com%2Fmeishi%2Fc11%2Fpn2%2F&riskLevel=1&optimusCode=1&cityName=%E6%9D%AD%E5%B7%9E&'+'cateId=%s&areaId=0&sort=&dinnerCountAttrId=&page=%d&userId=0' % (type_code, page)
+		url = r'http://hz.meituan.com/meishi/api/poi/getPoiList?uuid='+uuid+r'&platform=1&partner=126&originUrl='+url_uuid+r'&riskLevel=1&optimusCode=1&cityName=%E6%9D%AD%E5%B7%9E&'+'cateId=%s&areaId=0&sort=&dinnerCountAttrId=&page=%d&userId=0' % (type_code, page)
 		# print(url)
+		# url = r'http://hz.meituan.com/meishi/c17/pn2/'
+		down.headers['Accept'] = request_headers_accept
 		html = down(url)
 		# json_html = json.loads(html)
 		# print(json_html['status'])
 		# print(type(html))
-		# if len(html) < 100:
-		# 	print(url)
-		# 	break
-		# print(html[:100])
-		
+		if len(html) < 100:
+			break
+		# print(html[:100])		
 		shop_info_list = extrace(html, type_code)
 		threads = []
 
@@ -143,9 +174,7 @@ def down_shop_name(one_class=None):
 				thread.setDaemon(True)
 				thread.start()
 				threads.append(thread)
-			# time.sleep(0)
-		# print(type_code)
-	# print('over')
+		time.sleep(random.uniform(30,60))
 
 
 def down_proc_pool(num=27, list_=None):
@@ -165,7 +194,7 @@ def down_proc_pool(num=27, list_=None):
 
 def main():
 	shop_class = read_shop_class_from_db()
-	# print(len(shop_class))
+	print(len(shop_class))
 	down_proc_pool(list_=shop_class)
 
 if __name__ == '__main__':

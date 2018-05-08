@@ -80,19 +80,19 @@ def write_data_in_db(data):
 
 
 def main():
-	# html = down_meishi_home(meishi_url)
-	# extract_meishi_class(html)
-	db = Database()
-	now_time = datetime.now()
-	now_time = str(now_time)
-	now_time = now_time.split('.')[0]
-	select_sql = 'SELECT * FROM crawler.mt_directory'
-	update_sql = "update crawler.mt_directory set IS_DELETE = 1, UPDATE_TIME = '%s' where IS_DELETE = 0" % now_time
-	# select_result = db.select_from(sql)
-	print(update_sql)
-	# print(select_result)
-	db.update_data(update_sql)
-	db.close()
+	html = down_meishi_home(meishi_url)
+	extract_meishi_class(html)
+	# db = Database()
+	# now_time = datetime.now()
+	# now_time = str(now_time)
+	# now_time = now_time.split('.')[0]
+	# select_sql = 'SELECT * FROM crawler.mt_directory'
+	# update_sql = "update crawler.mt_directory set IS_DELETE = 1, UPDATE_TIME = '%s' where IS_DELETE = 0" % now_time
+	# # select_result = db.select_from(sql)
+	# print(update_sql)
+	# # print(select_result)
+	# db.update_data(update_sql)
+	# db.close()
 
 
 if __name__ == '__main__':

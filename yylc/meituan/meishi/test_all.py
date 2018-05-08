@@ -188,16 +188,140 @@ class Downloader:
 				if num_retrie > 0 and 500 <= code < 600:
 					return _get(url, headers, proxy, num_retrie-1,data)
 		return html
+deallist_data = {
+		'app': "",
+		'optimusCode': '10',
+		'originUrl': "http://meishi.meituan.com/i/poi/93743204",
+		'partner': '126',
+		'platform':	'3',
+		'poiId': '93743204',
+		'riskLevel': '1',
+		'uuid': "",
+		'version': "8.2.0"
+	}
+
+deallist_headers = {
+	'Accept': 'application/json',
+	'Accept-Encoding': 'gzip, deflate, br',
+	'Accept-Language': 'zh-CN,zh;q=0.9',
+	'Connection': 'keep-alive',
+	'Content-Length': '204',
+	'Content-Type': 'application/json',
+	'Host': 'meishi.meituan.com',
+	'Origin': 'https://meishi.meituan.com',
+	'Referer': 'https://meishi.meituan.com/i/poi/93743204',
+	'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36',
+	'x-requested-with': 'XMLHttpReques'
+}
+
+def post_deallist(url=None, data=deallist_data, headers=deallist_headers):
+	deallist_json = requests.post(url, data=data, headers=headers, timeout=30)
+	print(deallist_json.text)
+
 
 
 def main():
+	request_headers = {
+		'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+		'Accept-Encoding': 'gzip, deflate',
+		'Accept-Language': 'zh-CN,zh;q=0.9',
+		'Connection': 'keep-alive',
+		'Host': 'hz.meituan.com',
+		'Referer': 'http://hz.meituan.com/meishi/c11/',
+		'Upgrade-Insecure-Requests': '1',
+		'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36'
+		# 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:59.0) Gecko/20100101 Firefox/59.0'
+		# 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1667.0 Safari/537.36'
+		# 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36'
+	}
+
+	headers = {
+	'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+	'Accept-Encoding': 'gzip, deflate, br',
+	'Accept-Language': 'zh-CN,zh;q=0.9',
+	'Cache-Control': 'max-age=0',
+	'Connection': 'keep-alive',
+	'Host': 'meishi.meituan.com',
+	'Upgrade-Insecure-Requests': '1',
+	'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36'
+	}
+	url = 'https://meishi.meituan.com/i/poi/93743204'
+	v2ex_session = requests.Session()
+	html = v2ex_session.get(url, headers=headers).text
+	print(html)
+	re_uuid = re.compile(r'"uuid":"(.*?)",', re.IGNORECASE)
+	re_phone = re.compile(r'"phone":"(.*?)"',re.IGNORECASE)
+	try:
+		uuid = re_uuid.findall(html)[-1]
+		phone = re_phone.findall(html)[0]
+	except Exception as e:
+		print('get uuid error: ', e)
+		return
+	print(uuid)
+	print(phone)
+	time.sleep(0.04)
+	headers_second = {
+		'Accept': 'application/json',
+		'Accept-Encoding': 'gzip, deflate, br',
+		'Accept-Language': 'zh-CN,zh;q=0.9',
+		'Connection': 'keep-alive',
+		'Content-Length': 0,
+		'Host': 'meishi.meituan.com',
+		'Origin': 'https://meishi.meituan.com',
+		'Referer': 'https://meishi.meituan.com/i/poi/93743204',
+		'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36',
+		'x-requested-with': 'XMLHttpRequest'
+	}
+	url='https://meishi.meituan.com/i/api/collection/get/poi/93743204'
+	second_html = v2ex_session.post(url=url, data=headers_second)
+	print('********************\n*******\n')
+	print(second_html.text)
+	url_post = 'https://meishi.meituan.com/i/api/poi/deallist'
+	time.sleep(0.04)
+	data = {
+		"uuid":"23c65c78-df9d-4d08-8a3d-e50581e7c7ed",
+		"version":"8.2.0",
+		"platform":3,
+		"app":"",
+		"partner":126,
+		"riskLevel":1,
+		"optimusCode":10,
+		"originUrl":"http://meishi.meituan.com/i/poi/93743204",
+		"poiId":93743204
+	}
+	data['uuid'] = uuid
+	print(data)
+	json = v2ex_session.post(url_post, headers=deallist_headers, data=data).text
+	print(json)
+
+	
 	# a = prequest('https://www.baidu.com')
 	# print(a.text)
 	# while True:
 	# 	print(prequest())
-	d = Downloader(headers=request_headers)
-	html = d(URL)
-	print(html)
+	# d = Downloader(headers=request_headers)
+	# html = d(URL)
+	# print(html)
+	# break
+	# html = requests.get(url = 'http://www.meituan.com/meishi/4804147/', headers=request_headers)
+	# # print(html.text)
+	# is_wifi = 0
+	# if 'wifi' in html.text or '无线' in html.text or 'WIFI' in html.text or 'Wifi' in html.text:
+	# 	is_wifi = 1
+	# re_uuid = re.compile(r'"uuid":"(.*?)",', re.IGNORECASE)
+	# re_phone = re.compile(r'"phone":"(.*?)"',re.IGNORECASE)
+	# try:
+	# 	uuid = re_uuid.findall(html.text)[0]
+	# 	phone = re_phone.findall(html.text)[0]
+	# except Exception as e:
+	# 	print('get uuid error: ', e)
+	# 	return
+	# print(uuid)
+	# print(phone)
+	# print(is_wifi)
+
+	
+	# post_deallist(url = 'https://meishi.meituan.com/i/api/poi/deallist')
 
 
 if __name__ == "__main__":
