@@ -6,6 +6,7 @@ created by yangyinglong at 20180508
 from multiprocessing import Process
 from multiprocessing import Pool
 
+import os
 import re
 import json
 
@@ -45,13 +46,12 @@ area = {
 headers_home = {
 	'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
 	'Accept-Encoding': 'gzip, deflate',
-	'Accept-Language': 'zh-CN,zh;q=0.9',
 	'Cache-Control': 'max-age=0',
+	'Accept-Language': 'zh-CN,zh;q=0.9',
 	'Connection': 'keep-alive',
 	'Host': 'hz.meituan.com',
-	'Referer': 'http://hz.meituan.com/',
 	'Upgrade-Insecure-Requests': '1',
-	'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/33.0.3359.117 Safari/537.36'
+	'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36'
 }
 
 headers_get = {
@@ -62,7 +62,7 @@ headers_get = {
 	'Host': 'apimobile.meituan.com',
 	'Origin': 'http://hz.meituan.com',
 	'Referer': 'http://hz.meituan.com/jiankangliren/c74b59/pn10/',
-	'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/33.0.3359.117 Safari/537.36'
+	'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36'
 }
 
 # url = 'http://hz.meituan.com/jiankangliren/c74b59/'
@@ -80,7 +80,7 @@ headers_get = {
 # print(html)
 
 
-down = Downloader(headers=headers_home)
+# down = Downloader(headers=headers_home)
 db = Database()
 
 
@@ -95,9 +95,10 @@ def compose_url():
 	return url_dict
 
 
-def get_uuid(url):
+def get_uuid(url, down):
 	html = down(url)
-	re_uuid = re.compile(r'"uuid":"(.*?)",', re.IGNORECASE)
+	html = str(down.cookies)
+	re_uuid = re.compile(r'uuid=(.*?) ', re.IGNORECASE)
 	try:
 		uuid = re_uuid.findall(html)[0]	
 	except Exception as e:
@@ -107,8 +108,11 @@ def get_uuid(url):
 
 
 def get_data(url):
-	# down = Downloader(headers=headers_home)
-	uuid = get_uuid(url)
+	down = Downloader(headers=headers_home)
+	path = 'cache/hz.meituan.com/index.html'
+	if os.path.exists(path):
+		os.remove(path)
+	uuid = get_uuid('http://hz.meituan.com/', down)
 	if not uuid:
 		return
 	data = {}
@@ -130,6 +134,7 @@ def get_data(url):
 		except Exception as e:
 			print('in get_data error ',e)
 		if search_result == []:
+			print('search_result is None')
 			break
 		for one_item in search_result:
 			data['SHOP_ID'] = one_item['id']
