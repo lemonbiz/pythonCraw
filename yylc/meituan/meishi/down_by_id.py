@@ -5,6 +5,8 @@ created by yangyinglong at 20180507
 '''
 
 from datetime import timedelta,datetime
+from multiprocessing import Process
+from multiprocessing import Pool
 
 import json
 import re
@@ -18,15 +20,27 @@ from download import Database
 headers = {
 	'Accept': 'application/json',
 	'Accept-Encoding': 'gzip, deflate',
-	'Accept-Language': 'en-US,en;q=0.5',
+	'Accept-Language': 'zh-CN,zh;q=0.9',
 	'Cache-Control': 'max-age=0',
 	'Connection': 'keep-alive',
 	'Host': 'www.meituan.com',
 	'Referer': 'http://www.meituan.com/meishi/5253775/',
-	'User-Agent': 'Mozilla/5.0 (X11; Linux ppc64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/33.0.3359.117 Safari/537.36'
+	'User-Agent': 'Mozilla/5.0 (X11; Linux ppc64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36'
 }
 
 headers_home = {
+	'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+	'Accept-Encoding': 'gzip, deflate',
+	'Accept-Language': 'zh-CN,zh;q=0.9',
+	'Cache-Control': 'max-age=0',
+	'Connection': 'keep-alive',
+	'Host': 'www.meituan.com',
+	'Referer': 'http://hz.meituan.com/meishi/',
+	'Upgrade-Insecure-Requests': '1',
+	'User-Agent': 'Mozilla/5.0 (X11; Linux ppc64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36'
+}
+
+headers_home_1 = {
 	'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
 	'Accept-Encoding': 'gzip, deflate',
 	'Accept-Language': 'en-US,en;q=0.5',
@@ -34,18 +48,17 @@ headers_home = {
 	'Connection': 'keep-alive',
 	'Host': 'www.meituan.com',
 	'Upgrade-Insecure-Requests': '1',
-	'User-Agent': 'Mozilla/5.0 (X11; Linux ppc64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/33.0.3359.117 Safari/537.36'
+	'User-Agent': 'Mozilla/5.0 (X11; Linux ppc64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36'
 }
 
 HOMEURL = 'http://www.meituan.com/meishi/'
 
 db = Database()
-down = Downloader(headers=headers_home)
 
 
 def get_ten_limit_id():
 	try:
-		sql = "SELECT SHOP_ID FROM crawler.mt_meishi where 'LABEL_IS_CCRAWLED' = 0 LIMIT 10;"
+		sql = "SELECT SHOP_ID FROM crawler.mt_meishi where LABEL_IS_CCRAWLED = 0;"
 		id_list = db.select_from(sql)
 		return id_list
 	except Exception as e:
@@ -53,8 +66,10 @@ def get_ten_limit_id():
 		return None
 
 
-def get_uuid_phone_openTime_wifi(url):
+def get_uuid_phone_openTime_wifi(url, down):
+	# print(down.headers)
 	html = down(url)
+	# print(html[100:200])
 	is_wifi = 0
 	if 'wifi' in html or '无线' in html or 'WIFI' in html or 'Wifi' in html:
 		is_wifi = 1
@@ -88,7 +103,7 @@ def extract(evalution):
 	if evalution['star']:
 		one_limit = one_limit + ' 综合评分: ' + str(evalution['star']) + ';'
 	if evalution['comment']:
-		one_limit = one_limit + ' 评价内容: '  + evalution['comment'] + ';'
+		one_limit = one_limit + ' 评价内容: '  + evalution['comment'].replace("'",'') + ';'
 	if evalution['userUrl']:
 		one_limit = one_limit + ' 网友头像: ' + evalution['userUrl'] + ';'
 	if evalution['picUrls']:
@@ -111,7 +126,7 @@ def extract(evalution):
 	return one_limit + '   '
 
 
-def get_review(uuid, id, url):
+def get_review(uuid, id, url, down):
 	num = 0
 	count = 0
 	index = 0
@@ -123,7 +138,10 @@ def get_review(uuid, id, url):
 		review_label_list = json.loads(html)['data']['tags']
 	except Exception as e:
 		print('in get_review review_label_list error: ',e)
+		return review_label_list,None
 	REVIEW_COUNT = ''
+	if not review_label_list:
+		return None,None
 	for label in review_label_list:
 		REVIEW_COUNT = REVIEW_COUNT + label['tag'] + ':' + str(label['count']) + '; '
 	# print(REVIEW_COUNT)
@@ -138,6 +156,8 @@ def get_review(uuid, id, url):
 		index += 1
 		NETIZEN_EVALUTION = NETIZEN_EVALUTION + 'No.'+ str(index) + ':' + one_limit
 	while True:
+		if num > 100:
+			break
 		num = num + 10
 		url_review = r'http://www.meituan.com/meishi/api/poi/getMerchantComment?uuid='+uuid+'&platform=1&partner=126&originUrl=http://www.meituan.com/meishi/'+id+'/&riskLevel=1&optimusCode=1&id='+id+'&userId=&offset='+str(num)+'&pageSize=10&sortType=1'
 		html = down(url_review)
@@ -161,14 +181,29 @@ def down_info_by_id(one_id=None):
 	if not one_id:
 		return None
 	data = {}
+	down = Downloader(headers=headers_home)
 	id = one_id['SHOP_ID']
+	sql = 'update crawler.mt_meishi set LABEL_IS_CCRAWLED = 2 where SHOP_ID = ' + id
+	db.update_data(sql)
 	url = HOMEURL + id + '/'
-	uuid, data['TELEPHONE'], data['BUSINESS_TIME'] = get_uuid_phone_openTime_wifi(url)
+	uuid, data['TELEPHONE'], data['BUSINESS_TIME'] = get_uuid_phone_openTime_wifi(url, down)
 	if uuid:
-		data['REVIEW_COUNT'], data['NETIZEN_EVALUTION'] = get_review(uuid, id, url)
+		data['REVIEW_COUNT'], data['NETIZEN_EVALUTION'] = get_review(uuid, id, url, down)
+		if data['NETIZEN_EVALUTION'] == None:
+			return
+		limit = ''' '''
+		for key, value in data.items():
+			if data[key] != None:
+				if type(data[key]) == int:
+					limit = limit + str(key) + "=" + str(data[key]) + ","
+				else:
+					limit = limit + str(key) + "=" + "'" + data[key] + "'" + ","
+		limit = limit[:-1]
+		sql = 'update crawler.mt_meishi set ' + limit + ' where SHOP_ID = ' + id
+		db.update_data(sql)
 	else:
 		print('uuid is None')
-		return	
+		return
 	limit = ''
 	sql = ''
 	now_time = datetime.now()
@@ -189,15 +224,37 @@ def down_info_by_id(one_id=None):
 	except Exception as e:
 		print(e)
 		pass
-	
+
+
+def down_proc_pool(num=10, list_=None):
+	'''进程池的使用'''
+	pool = Pool(processes=int(num)) 
+
+	# for i in range(1,10):
+	# 	pool.apply_async(run_proc, args=(i, ))
+	# print(list_)
+	print(len(list_))
+	pool.map(down_info_by_id, list_)
+	print('Waiting for all subprocesses done...')
+	pool.close()
+	pool.join()
+	print('All subprocesses done')
+
 
 def main():
+	index = 0
 	while True:
 		id_list = get_ten_limit_id()
 		if not id_list:
 			break
-		for id in id_list:
-			down_info_by_id(id)
+		down_proc_pool(list_=id_list)
+		# for id in id_list:
+		# 	down_info_by_id(id)
+		# 	print(id)
+		# 	index = index + 1
+		# print(index)
+		break
+
 			
 
 
