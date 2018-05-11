@@ -7,6 +7,7 @@
 
 from datetime import timedelta,datetime
 
+import json
 import os
 import pymysql
 import requests
@@ -26,17 +27,18 @@ SLEEP_TIME = 1
 
 
 request_headers = {
-	'Accept': 'application/json',
-	'Accept-Encoding': 'gzip, deflate',
-	'Accept-Language': 'zh-CN,zh;q=0.9',
-	'Connection': 'keep-alive',
-	'Host': 'hz.meituan.com',
-	'Referer': 'http://hz.meituan.com/meishi/c11/pn2/',
+	# 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+	# 'Accept-Encoding': 'gzip, deflate',
+	# 'Cache-Control': 'max-age=0',
+	# 'Accept-Language': 'zh-CN,zh;q=0.9',
+	# 'Connection': 'keep-alive',
+	# 'Host': 'hz.meituan.com',
+	# 'Upgrade-Insecure-Requests': '1',
 	'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.117 Safari/537.36'
 }
 
 # 代理服务器下载url
-def prequest(url= "http://ip.chinaz.com/getip.aspx", headers=request_headers, cookies=None, use_proxies=True):
+def prequest(url= "http://ip.chinaz.com/getip.aspx", headers=None, cookies=None, use_proxies=True):
 
     time.sleep(random.random()/999)
 
@@ -63,6 +65,9 @@ def prequest(url= "http://ip.chinaz.com/getip.aspx", headers=request_headers, co
     	    "https": proxyMeta,
     	}
     	resp = requests.get(url, headers=headers, cookies=cookies, proxies=proxy_handler)
+    	res = requests.get(url='http://jsonip.com',proxies=proxy_handler)
+    	ip = json.loads(res.text)['ip']
+    	print('ip:', ip)
     	resp.raise_for_status()
     	resp.encoding = resp.apparent_encoding
     	if resp.encoding == 'Windows-1254':
@@ -138,7 +143,7 @@ class Throttle:
 
 
 class Downloader:
-	def __init__(self, delay=DEFAULT_DELAY, headers=None, user_agent=DEFAULT_AGENT, proxies=None, num_retries=DEFAULT_RETRIES, timeout=DEFAULT_TIMEOUT, opener=None, cache=DiskCache()):
+	def __init__(self, delay=DEFAULT_DELAY, headers=request_headers, cookies=None, user_agent=DEFAULT_AGENT, proxies=None, num_retries=DEFAULT_RETRIES, timeout=DEFAULT_TIMEOUT, opener=None, cache=DiskCache()):
 		socket.setdefaulttimeout(timeout)
 		self.throttle = Throttle(delay)
 		self.user_agent = user_agent
@@ -147,6 +152,7 @@ class Downloader:
 		self.opener = opener
 		self.cache = cache
 		self.headers = headers
+		self.cookies = cookies
 
 
 	def __call__(self, url):
@@ -161,7 +167,7 @@ class Downloader:
 		if result is None:
 			self.throttle.wait(url)
 			proxy = random.choice(self.proxies) if self.proxies else None
-			result = self.download(url, self.headers, proxy, self.num_retries)
+			result = self.download(url, self.headers, proxy, self.num_retries, self.cookies)
 			# index = 0
 			# while True:
 			# 	index = 1 + index
@@ -175,7 +181,9 @@ class Downloader:
 	def download(self, url, headers, proxy, num_retrie, data = None):
 		print ('Download:', url)
 		try:
-			html = prequest(url=url, headers=self.headers).text
+			html = prequest(url=url, headers=self.headers, cookies=self.cookies)
+			# self.cookies = html.cookies
+			html = html.text
 		except Exception as e:
 			print ('Download error', str(e))
 			html = ''
@@ -260,6 +268,16 @@ class Database():
 			print(e)
 			self.conn.rollback()	
 
+	def insert_data(self,sql=None):
+		try:
+			self.cursor.execute(sql)
+			self.conn.commit()
+			a = time.strftime('%Y-%m-%d %H:%M:%S',time.localtime())
+			print(a + ' insert comment successful')
+		except Exception as e:
+			print(e)
+			self.conn.rollback()	
+
 	def close(self):
 		try:
 			self.conn.close()
@@ -269,6 +287,15 @@ class Database():
 
 
 def main():
+	down = Downloader()
+	url = 'http://hz.meituan.com/'
+	html_home = down(url)
+	print(down.cookies)
+	print(html_home)
+	url = 'http://meituan.com/meishi/5109685/'
+	html_uuid = down(url)
+	if 'uuid' in html_uuid:
+		print('******')
 	# a = prequest('https://www.baidu.com')
 	# print(a.text)
 	# while True:
@@ -279,17 +306,17 @@ def main():
 	# while 1:
 	# 	print(prequest().text)
 	# 	# print(prequest.url)
-	url = r'http://hz.meituan.com/meishi/c11/pn3/'
-	html_uuid = prequest(url)
-	text = html_uuid.text
-	re_uuid = re.compile(r'"uuid":"(.*?)",', re.IGNORECASE)
-	uuid = re_uuid.findall(text)[0]
-	# print(uuid)
+	# url = r'http://hz.meituan.com/meishi/c11/pn3/'
+	# html_uuid = prequest(url)
+	# text = html_uuid.text
+	# re_uuid = re.compile(r'"uuid":"(.*?)",', re.IGNORECASE)
+	# uuid = re_uuid.findall(text)[0]
+	# # print(uuid)
 
 
-	url = r'http://hz.meituan.com/meishi/api/poi/getPoiList?uuid='+uuid+r'&platform=1&partner=126&originUrl=http%3A%2F%2Fhz.meituan.com%2Fmeishi%2Fc11%2Fpn2%2F&riskLevel=1&optimusCode=1&cityName=%E6%9D%AD%E5%B7%9E&cateId=11&areaId=0&sort=&dinnerCountAttrId=&page=3&userId=0'
-	html = prequest(url)
-	print(html.text)
+	# url = r'http://hz.meituan.com/meishi/api/poi/getPoiList?uuid='+uuid+r'&platform=1&partner=126&originUrl=http%3A%2F%2Fhz.meituan.com%2Fmeishi%2Fc11%2Fpn2%2F&riskLevel=1&optimusCode=1&cityName=%E6%9D%AD%E5%B7%9E&cateId=11&areaId=0&sort=&dinnerCountAttrId=&page=3&userId=0'
+	# html = prequest(url)
+	# print(html.text)
 
 
 if __name__ == "__main__":
