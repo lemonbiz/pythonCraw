@@ -1,0 +1,94 @@
+***160826705***crawl****right***uuid=	1f9fc8d0-df24-4c20-ba45-cffe144baef1
+***150011805***crawl****right***uuid=	a23a8b8d-7d84-4851-aee6-1188401ce44f
+***42207262***crawl****right***uuid=	244ce883-1373-42d7-9184-bf4aaae6cd7a
+***41642448***crawl****right***uuid=	28af1679-4738-422e-9e34-422c76163522
+***698681***crawl****right***uuid=	d60735a8-9cf4-4360-a3a7-1611cfd8b043
+***126748413***crawl****right***uuid=	20bbc1da-bbd5-4359-b39a-d2db73353d44
+***110097983***crawl****right***uuid=	4eb3d57c-b7fd-4222-97ca-4aac8c45dead
+***5232797***crawl****right***uuid=	c8297109-5ec6-4c85-ad67-c5c5baba6e00
+***6576551***crawl****right***uuid=	837b32b8-2bba-42f4-a12f-6ead93d68b17
+***6939088***crawl****right***uuid=	44e12ee5-4353-49c7-9ce3-01da7ab661a9
+***160826705***crawl****Download: http://www.meituan.com/meishi/160826705/
+***160826705***crawl****error
+***150011805***crawl****Download: http://www.meituan.com/meishi/150011805/
+error
+***42207262***crawl****Download: http://www.meituan.com/meishi/42207262/
+error
+***41642448***crawl****Download: http://www.meituan.com/meishi/41642448/
+error
+***698681***crawl****Download: http://www.meituan.com/meishi/698681/
+error
+***126748413***crawl****Download: http://www.meituan.com/meishi/126748413/
+error
+***110097983***crawl****Download: http://www.meituan.com/meishi/110097983/
+error
+***5232797***crawl****Download: http://www.meituan.com/meishi/5232797/
+error
+***6576551***crawl****Download: http://www.meituan.com/meishi/6576551/
+error
+***6939088***crawl****Download: http://www.meituan.com/meishi/6939088/
+error
+***160826705***crawl*******160826705***crawl****right***uuid=	dafeaf36-ec55-47a0-ae0b-1bed9f3abd0a
+***150011805***crawl****right***uuid=	c131408b-c774-4e22-9c42-cc3c8a9acff0
+***42207262***crawl****right***uuid=	5486bdbf-56fd-40f2-8506-c623d4705694
+***41642448***crawl****right***uuid=	d23228c9-8e52-4515-b399-ec0ade868340
+***698681***crawl****right***uuid=	e6039c27-f15f-4ee1-b9f9-51da8c3fd958
+***126748413***crawl****right***uuid=	13556a07-01ee-4572-96bf-42d83484a8e8
+***110097983***crawl****right***uuid=	8eef8ae1-9c4b-4517-974b-8fb0fa80272f
+***5232797***crawl****right***uuid=	bcc1f785-d6cb-4c3d-ad3a-a1ac9bc1151c
+***6576551***crawl****right***uuid=	0f6eabeb-5bde-4a47-a755-db74ae28a5ea
+***6939088***crawl****right***uuid=	805e2ad8-e919-4555-9a85-3616bc1fa14b
+***160826705***crawl****error
+***150011805***crawl****error
+***42207262***crawl****error
+***41642448***crawl****error
+***698681***crawl****error
+***126748413***crawl****error
+***110097983***crawl****error
+***5232797***crawl****error
+***6576551***crawl****error
+***6939088***crawl****error
+***160826705***crawl****Download: http://www.meituan.com/meishi/160826705/
+Download error 503 Server Error: Service Unavailable for url: http://101.68.80.186/psbsp?BAS_IP=101.68.216.20&USER_ACCOUNT=tx1309573-3&USER_IP=101.69.5.216&SESSION_ID=JX_DX_D0120016040107010b314249361&BAS_TYPE=10
+error
+***150011805***crawl****Download: http://www.meituan.com/meishi/150011805/
+error
+***42207262***crawl****Download: http://www.meituan.com/meishi/42207262/
+error
+***41642448***crawl****Download: http://www.meituan.com/meishi/41642448/
+error
+***698681***crawl****Download: http://www.meituan.com/meishi/698681/
+error
+***126748413***crawl****Download: http://www.meituan.com/meishi/126748413/
+error
+***110097983***crawl****Download: http://www.meituan.com/meishi/110097983/
+error
+***5232797***crawl****Download: http://www.meituan.com/meishi/5232797/
+error
+***6576551***crawl****Download: http://www.meituan.com/meishi/6576551/
+error
+***6939088***crawl****Download: http://www.meituan.com/meishi/6939088/
+error
+***4081383***crawl****error
+***90388132***crawl****error
+***158701446***crawl****error
+***2426046***crawl****error
+***1695946***crawl****error
+***118517034***crawl****error
+***4931343***crawl****error
+***5707926***crawl****error
+***6151874***crawl****error
+***41422596***crawl****error
+***4731513***crawl****error
+***1699999***crawl****error
+***5613740***crawl****error
+***61243056***crawl****error
+***160047383***crawl****error
+***42721194***crawl****error
+***6478658***crawl****error
+***5515486***crawl****error
+***5197015***crawl****error
+***6340632***crawl****error
+***40845990***crawl****error
+***4324725***crawl****error
+***1696410***crawl****
