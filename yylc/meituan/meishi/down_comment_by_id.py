@@ -3,6 +3,8 @@ created by yangyinglong at 20180509
 crawl shop comment by request.get(shop_url)
 '''
 
+from multiprocessing import Process
+from multiprocessing import Pool
 from datetime import timedelta,datetime
 
 import json
@@ -86,12 +88,13 @@ def update_shop_by_id(data):
 
 
 def insert_shop_comments(NETIZEN_EVALUTION_list, id):
-	for one_evalution in NETIZEN_EVALUTION_list:
-		now_time = datetime.now()
-		now_time = str(now_time)
-		now_time = now_time.split('.')[0]
-		sql_insert = "insert into mt_shop_comments (SHOP_ID, NETIZEN_EVALUTION, INBASE_TIME) value ('%s', '%s', '%s')" % (id, one_evalution, now_time)
-		db.insert_data(sql_insert)
+	if NETIZEN_EVALUTION_list:
+		for one_evalution in NETIZEN_EVALUTION_list:
+			now_time = datetime.now()
+			now_time = str(now_time)
+			now_time = now_time.split('.')[0]
+			sql_insert = "insert into mt_shop_comments (SHOP_ID, NETIZEN_EVALUTION, INBASE_TIME) value ('%s', '%s', '%s')" % (id, one_evalution, now_time)
+			db.insert_data(sql_insert)
 
 def extrace_label_list(review_labels_list):
 	REVIEW_COUNT = ''
@@ -225,16 +228,62 @@ def get_shop_comment(uuid, id):
 	return REVIEW_COUNT, NETIZEN_EVALUTION_list
 
 
+def down_comment(id):
+	url_source = 'http://www.meituan.com/meishi/'
+	data = {}
+	data['SHOP_ID'] = id
+	url_shop = url_source + str(id) + '/'
+	# uuid, phone, open_time, is_wifi
+	data['LABEL_IS_CCRAWLED'] = 2
+	update_shop_by_id(data)
+	uuid, data['TELEPHONE'], data['BUSINESS_TIME'], data['WIFI'] = get_shop_information(url_shop)
+	if uuid:
+		data['LABEL_IS_CCRAWLED'] = 3
+		update_shop_by_id(data)
+		data['REVIEW_COUNT'], NETIZEN_EVALUTION_list = get_shop_comment(uuid, id)
+		print(data)
+	else:
+		print('****down_comment_by_id_main****in sleep****')
+		time.sleep(random.randint(100,500) + random.uniform(10, 20)/4)
+		return
+	now_time = datetime.now()
+	now_time = str(now_time)
+	now_time = now_time.split('.')[0]
+	data['UPDATE_TIME'] = now_time
+	update_shop_by_id(data)
+	insert_shop_comments(NETIZEN_EVALUTION_list, id)
+	time.sleep(random.randint(3000, 6000)/99)
+
+
+def down_proc_pool(num=10, list_=None):
+	'''进程池的使用'''
+	pool = Pool(processes=int(num)) 
+
+	# for i in range(1,10):
+	# 	pool.apply_async(run_proc, args=(i, ))
+	# print(list_)
+	print(len(list_))
+	pool.map(down_comment, list_)
+	print('Waiting for all subprocesses done...')
+	pool.close()
+	pool.join()
+	print('All subprocesses done')
+
+
 def down_comment_by_id_main():
 	id_list = ['']
 	# print(id_list)
-	url_source = 'http://www.meituan.com/meishi/'
+	index = 0
 	while True:
 		NETIZEN_EVALUTION_list = []
 		try:
 			id_dict = db.select_from(sql)
-			if id_dict == []:
+			if id_dict == [] and index < 100:
 				print('all shop had been ergodiced')
+				db.update_data("update crawler.mt_meishi set LABEL_IS_CCRAWLED = 0 where LABEL_IS_CCRAWLED = 2;")
+				index += 1
+				continue
+			elif index > 100:
 				break
 			for id in id_dict:
 				id_list.append(id['SHOP_ID'])
@@ -242,30 +291,31 @@ def down_comment_by_id_main():
 			print('select error ', e)
 			time.sleep(60)
 			continue
-		data = {}
-		id = id_list.pop()
-		data['SHOP_ID'] = id
-		url_shop = url_source + str(id) + '/'
-		# uuid, phone, open_time, is_wifi
-		data['LABEL_IS_CCRAWLED'] = 2
-		update_shop_by_id(data)
-		uuid, data['TELEPHONE'], data['BUSINESS_TIME'], data['WIFI'] = get_shop_information(url_shop)
-		if uuid:
-			data['LABEL_IS_CCRAWLED'] = 3
-			update_shop_by_id(data)
-			data['REVIEW_COUNT'], NETIZEN_EVALUTION_list = get_shop_comment(uuid, id)
-			print(data)
-		else:
-			print('****down_comment_by_id_main****in sleep****')
-			time.sleep(random.randint(100,500) + random.uniform(10, 20)/4)
-			continue
-		now_time = datetime.now()
-		now_time = str(now_time)
-		now_time = now_time.split('.')[0]
-		data['UPDATE_TIME'] = now_time
-		update_shop_by_id(data)
-		insert_shop_comments(NETIZEN_EVALUTION_list, id)
-		time.sleep(random.randint(3000, 6000)/99)
+		down_proc_pool(10,id_list)
+		# data = {}
+		# id = id_list.pop()
+		# data['SHOP_ID'] = id
+		# url_shop = url_source + str(id) + '/'
+		# # uuid, phone, open_time, is_wifi
+		# data['LABEL_IS_CCRAWLED'] = 2
+		# update_shop_by_id(data)
+		# uuid, data['TELEPHONE'], data['BUSINESS_TIME'], data['WIFI'] = get_shop_information(url_shop)
+		# if uuid:
+		# 	data['LABEL_IS_CCRAWLED'] = 3
+		# 	update_shop_by_id(data)
+		# 	data['REVIEW_COUNT'], NETIZEN_EVALUTION_list = get_shop_comment(uuid, id)
+		# 	print(data)
+		# else:
+		# 	print('****down_comment_by_id_main****in sleep****')
+		# 	time.sleep(random.randint(100,500) + random.uniform(10, 20)/4)
+		# 	continue
+		# now_time = datetime.now()
+		# now_time = str(now_time)
+		# now_time = now_time.split('.')[0]
+		# data['UPDATE_TIME'] = now_time
+		# update_shop_by_id(data)
+		# insert_shop_comments(NETIZEN_EVALUTION_list, id)
+		# time.sleep(random.randint(3000, 6000)/99)
 
 
 
